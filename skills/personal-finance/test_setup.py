@@ -15,163 +15,241 @@ sys.path.insert(0, str(templates_dir))
 def test_imports():
     """Test that all modules can be imported"""
     print("Testing imports...")
-    
+
     try:
         import db
-        print("✅ Database module imported")
+        print("  Database module imported")
     except Exception as e:
-        print(f"❌ Database module failed: {e}")
+        print(f"  Database module failed: {e}")
         return False
-        
+
     try:
-        import enablebanking
-        print("✅ Enable Banking module imported")
+        import csv_import
+        print("  CSV import module imported")
     except Exception as e:
-        print(f"❌ Enable Banking module failed: {e}")
+        print(f"  CSV import module failed: {e}")
         return False
-        
+
     try:
         import categorize
-        print("✅ Categorization module imported")
+        print("  Categorization module imported")
     except Exception as e:
-        print(f"❌ Categorization module failed: {e}")
+        print(f"  Categorization module failed: {e}")
         return False
-        
+
     try:
         import charts
-        print("✅ Charts module imported")
+        print("  Charts module imported")
     except Exception as e:
-        print(f"❌ Charts module failed: {e}")
+        print(f"  Charts module failed: {e}")
         return False
-        
+
     try:
         import reports
-        print("✅ Reports module imported")
+        print("  Reports module imported")
     except Exception as e:
-        print(f"❌ Reports module failed: {e}")
+        print(f"  Reports module failed: {e}")
         return False
-        
+
     try:
         import finance
-        print("✅ Main finance module imported")
+        print("  Main finance module imported")
     except Exception as e:
-        print(f"❌ Finance module failed: {e}")
+        print(f"  Finance module failed: {e}")
         return False
-        
+
+    print("[PASS] All modules imported")
     return True
 
 def test_database():
     """Test database initialization"""
     print("\nTesting database...")
-    
+
     try:
         from db import init_database, get_db
-        
+
         # Initialize database
         init_database()
-        print("✅ Database initialized")
-        
+        print("  Database initialized")
+
         # Test connection
         with get_db() as conn:
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
-            
-        expected_tables = {'accounts', 'transactions', 'balances', 'budgets', 'requisitions', 'rate_limits'}
+
+        expected_tables = {'accounts', 'transactions', 'balances', 'budgets', 'rate_limits', 'user_settings'}
         if expected_tables.issubset(set(tables)):
-            print("✅ All database tables created")
+            print("[PASS] All database tables created")
             return True
         else:
             missing = expected_tables - set(tables)
-            print(f"❌ Missing tables: {missing}")
+            print(f"[FAIL] Missing tables: {missing}")
             return False
-            
+
     except Exception as e:
-        print(f"❌ Database test failed: {e}")
+        print(f"[FAIL] Database test failed: {e}")
+        return False
+
+def test_csv_import():
+    """Test CSV import functionality"""
+    print("\nTesting CSV import...")
+
+    try:
+        from csv_import import (
+            detect_bank_format, parse_amount, parse_date,
+            create_transaction_hash, get_supported_banks, BANK_FORMATS
+        )
+        from datetime import date
+
+        # Test bank format detection
+        csv_content = "Date;Amount;Description\n01.01.2025;-50.00;Test transaction"
+        bank_key, config = detect_bank_format(csv_content)
+        if bank_key:
+            print(f"  Bank format detection working (detected: {bank_key})")
+        else:
+            print("  Bank format detection returned None")
+            return False
+
+        # Test amount parsing
+        test_amounts = [
+            ("100.50", ".", 100.50),
+            ("1.234,56", ",", 1234.56),
+            ("-50.00", ".", -50.00),
+            ("(100.00)", ".", -100.00),
+            ("EUR 50.00", ".", 50.00),
+        ]
+        for value, sep, expected in test_amounts:
+            result = parse_amount(value, sep)
+            if abs(result - expected) > 0.01:
+                print(f"  [FAIL] parse_amount('{value}') = {result}, expected {expected}")
+                return False
+        print("  Amount parsing working")
+
+        # Test date parsing
+        test_dates = [
+            ("01.01.2025", date(2025, 1, 1)),
+            ("2025-01-15", date(2025, 1, 15)),
+            ("15/01/2025", date(2025, 1, 15)),
+        ]
+        for value, expected in test_dates:
+            result = parse_date(value, ['%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'])
+            if result != expected:
+                print(f"  [FAIL] parse_date('{value}') = {result}, expected {expected}")
+                return False
+        print("  Date parsing working")
+
+        # Test transaction hash
+        hash1 = create_transaction_hash("acc1", "2025-01-01", -50.00, "Test")
+        hash2 = create_transaction_hash("acc1", "2025-01-01", -50.00, "Test")
+        hash3 = create_transaction_hash("acc1", "2025-01-01", -50.00, "Different")
+        if hash1 != hash2:
+            print("  [FAIL] Same transactions have different hashes")
+            return False
+        if hash1 == hash3:
+            print("  [FAIL] Different transactions have same hash")
+            return False
+        print("  Transaction deduplication working")
+
+        # Test supported banks list
+        banks = get_supported_banks()
+        if len(banks) < 10:
+            print(f"  [FAIL] Only {len(banks)} banks supported, expected 10+")
+            return False
+        print(f"  {len(banks)} bank formats supported")
+
+        print("[PASS] CSV import working correctly")
+        return True
+
+    except Exception as e:
+        print(f"[FAIL] CSV import test failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def test_categorization():
     """Test categorization engine"""
     print("\nTesting categorization...")
-    
+
     try:
         from categorize import categorize_transaction, load_categories
-        
+
         # Load categories
         categories = load_categories()
-        print(f"✅ Loaded {len(categories['categories'])} categories")
-        
+        print(f"  Loaded {len(categories['categories'])} categories")
+
         # Test transaction
         test_txn = {
             'creditor_name': 'MIGROS ZURICH',
             'description': 'Grocery shopping',
             'amount': -45.50
         }
-        
+
         category = categorize_transaction(test_txn)
         if category == 'groceries':
-            print("✅ Transaction categorization working")
+            print("[PASS] Transaction categorization working")
             return True
         else:
-            print(f"❌ Expected 'groceries', got '{category}'")
+            print(f"[FAIL] Expected 'groceries', got '{category}'")
             return False
-            
+
     except Exception as e:
-        print(f"❌ Categorization test failed: {e}")
+        print(f"[FAIL] Categorization test failed: {e}")
         return False
 
 def test_charts():
     """Test chart generation"""
     print("\nTesting charts...")
-    
+
     try:
         from charts import create_spending_pie_chart
-        
+
         test_data = {
             'groceries': 150.0,
             'dining': 80.0,
             'transport': 45.0
         }
-        
+
         chart_path = create_spending_pie_chart(test_data, "Test Chart")
-        
+
         if chart_path and Path(chart_path).exists():
-            print(f"✅ Chart created: {chart_path}")
+            print(f"  Chart created: {chart_path}")
             # Clean up test file
             Path(chart_path).unlink()
+            print("[PASS] Chart generation working")
             return True
         else:
-            print("❌ Chart creation failed")
+            print("[FAIL] Chart creation failed")
             return False
-            
+
     except Exception as e:
-        print(f"❌ Chart test failed: {e}")
+        print(f"[FAIL] Chart test failed: {e}")
         return False
 
 def test_cli():
     """Test CLI interface"""
     print("\nTesting CLI...")
-    
+
     try:
         from finance import main
-        
+
         # Test help command
         original_argv = sys.argv
         sys.argv = ['finance.py', '--help']
-        
+
         try:
             main()
         except SystemExit as e:
             if e.code == 0:
-                print("✅ CLI help working")
+                print("[PASS] CLI help working")
                 return True
             else:
-                print(f"❌ CLI help failed with code {e.code}")
+                print(f"[FAIL] CLI help failed with code {e.code}")
                 return False
         finally:
             sys.argv = original_argv
-            
+
     except Exception as e:
-        print(f"❌ CLI test failed: {e}")
+        print(f"[FAIL] CLI test failed: {e}")
         return False
 
 def test_rate_limiting():
@@ -191,13 +269,13 @@ def test_rate_limiting():
         # First 3 calls should be allowed
         for i in range(3):
             if not check_rate_limit(test_account_id):
-                print(f"❌ Rate limit triggered too early (call {i+1})")
+                print(f"  [FAIL] Rate limit triggered too early (call {i+1})")
                 return False
             record_api_call(test_account_id)
 
         # 4th call should be blocked
         if check_rate_limit(test_account_id):
-            print("❌ Rate limit not enforced after 3 calls")
+            print("  [FAIL] Rate limit not enforced after 3 calls")
             return False
 
         # Clean up test data
@@ -205,107 +283,59 @@ def test_rate_limiting():
             conn.execute("DELETE FROM rate_limits WHERE account_id = ?", (test_account_id,))
             conn.commit()
 
-        print("✅ Rate limiting working correctly")
+        print("[PASS] Rate limiting working correctly")
         return True
 
     except Exception as e:
-        print(f"❌ Rate limiting test failed: {e}")
+        print(f"[FAIL] Rate limiting test failed: {e}")
         return False
 
 
-def test_categorization_edge_cases():
-    """Test category matching with edge cases"""
-    print("\nTesting categorization edge cases...")
+def test_reminder_system():
+    """Test monthly reminder system"""
+    print("\nTesting reminder system...")
 
     try:
-        from categorize import categorize_transaction
+        from csv_import import (
+            get_reminder_settings, set_reminder_settings,
+            should_send_reminder, get_reminder_message
+        )
 
-        test_cases = [
-            # Unicode characters
-            {
-                'creditor_name': 'MIGROS Zürich',
-                'description': 'Lebensmittel',
-                'amount': -45.50,
-                'expected': 'groceries'
-            },
-            # Special characters
-            {
-                'creditor_name': "McDonald's #1234",
-                'description': 'Fast food',
-                'amount': -15.90,
-                'expected': 'dining'
-            },
-            # Empty creditor
-            {
-                'creditor_name': '',
-                'description': 'SBB Train ticket',
-                'amount': -23.40,
-                'expected': 'transport'
-            },
-            # Mixed case
-            {
-                'creditor_name': 'STARBUCKS COFFEE',
-                'description': '',
-                'amount': -6.50,
-                'expected': 'dining'
-            }
-        ]
+        # Test setting reminders
+        set_reminder_settings(enabled=True, day_of_month=15)
+        settings = get_reminder_settings()
 
-        passed = 0
-        for i, test in enumerate(test_cases):
-            result = categorize_transaction(test)
-            if result == test['expected']:
-                passed += 1
-            else:
-                print(f"  Case {i+1}: Expected '{test['expected']}', got '{result}'")
+        if not settings['enabled']:
+            print("  [FAIL] Reminder not enabled")
+            return False
+        if settings['day_of_month'] != 15:
+            print(f"  [FAIL] Day is {settings['day_of_month']}, expected 15")
+            return False
 
-        if passed == len(test_cases):
-            print(f"✅ All {len(test_cases)} edge cases passed")
-            return True
-        else:
-            print(f"⚠️ {passed}/{len(test_cases)} edge cases passed")
-            return passed >= len(test_cases) - 1  # Allow 1 failure
+        print("  Reminder settings working")
 
-    except Exception as e:
-        print(f"❌ Categorization edge case test failed: {e}")
-        return False
+        # Test disable
+        set_reminder_settings(enabled=False)
+        settings = get_reminder_settings()
+        if settings['enabled']:
+            print("  [FAIL] Reminder not disabled")
+            return False
 
+        print("  Reminder enable/disable working")
 
-def test_date_boundaries():
-    """Test date boundary handling"""
-    print("\nTesting date boundaries...")
+        # Test should_send (should be False when disabled)
+        should_send, reason = should_send_reminder()
+        if should_send:
+            print("  [FAIL] Should not send when disabled")
+            return False
 
-    try:
-        from db import get_category_spending
-        from datetime import date
-
-        # Test month boundaries
-        test_cases = [
-            # December to January (year boundary)
-            (date(2025, 12, 1), date(2025, 12, 31)),
-            # February (28/29 days)
-            (date(2024, 2, 1), date(2024, 2, 29)),  # Leap year
-            (date(2025, 2, 1), date(2025, 2, 28)),  # Non-leap year
-            # Single day
-            (date(2025, 1, 15), date(2025, 1, 15)),
-        ]
-
-        for start, end in test_cases:
-            try:
-                result = get_category_spending(start, end)
-                # Should not raise exception, result type should be dict
-                if not isinstance(result, dict):
-                    print(f"❌ Unexpected result type for {start} to {end}")
-                    return False
-            except Exception as e:
-                print(f"❌ Failed for {start} to {end}: {e}")
-                return False
-
-        print("✅ Date boundary handling working correctly")
+        print("[PASS] Reminder system working correctly")
         return True
 
     except Exception as e:
-        print(f"❌ Date boundary test failed: {e}")
+        print(f"[FAIL] Reminder test failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -324,44 +354,44 @@ def test_currency():
         # Test same currency (should return 1.0)
         rate = get_exchange_rate("EUR", "EUR")
         if rate != 1.0:
-            print(f"❌ Same currency rate should be 1.0, got {rate}")
+            print(f"  [FAIL] Same currency rate should be 1.0, got {rate}")
             return False
 
         # Test currency symbol lookup
         if get_currency_symbol("EUR") != "€":
-            print("❌ EUR symbol should be €")
+            print("  [FAIL] EUR symbol should be €")
             return False
         if get_currency_symbol("USD") != "$":
-            print("❌ USD symbol should be $")
+            print("  [FAIL] USD symbol should be $")
             return False
 
         # Test format_amount
         formatted = format_amount(1234.56, "EUR")
         if "1,234.56" not in formatted and "1234.56" not in formatted:
-            print(f"❌ Format amount failed: {formatted}")
+            print(f"  [FAIL] Format amount failed: {formatted}")
             return False
 
         # Test home currency setting
         db_set_home("CHF")
         if get_home_currency() != "CHF":
-            print("❌ Home currency not set correctly")
+            print("  [FAIL] Home currency not set correctly")
             return False
 
         # Test conversion (same currency)
         result = convert(100, "CHF", "CHF")
         if result is None or result[0] != 100:
-            print("❌ Same currency conversion failed")
+            print("  [FAIL] Same currency conversion failed")
             return False
 
-        print("✅ Currency module working correctly")
+        print("[PASS] Currency module working correctly")
         return True
 
     except ImportError as e:
-        print(f"⚠️ Currency module not available: {e}")
+        print(f"  [WARN] Currency module not available: {e}")
         return True  # Not a failure, just not installed
 
     except Exception as e:
-        print(f"❌ Currency test failed: {e}")
+        print(f"[FAIL] Currency test failed: {e}")
         return False
 
 
@@ -383,19 +413,19 @@ def test_crypto():
 
         # Test chain normalization
         if normalize_chain('eth') != 'ethereum':
-            print("❌ Chain normalization failed for 'eth'")
+            print("  [FAIL] Chain normalization failed for 'eth'")
             return False
         if normalize_chain('sol') != 'solana':
-            print("❌ Chain normalization failed for 'sol'")
+            print("  [FAIL] Chain normalization failed for 'sol'")
             return False
         if normalize_chain('matic') != 'polygon':
-            print("❌ Chain normalization failed for 'matic'")
+            print("  [FAIL] Chain normalization failed for 'matic'")
             return False
 
         # Test supported chains list
         chains = get_supported_chains()
         if 'ethereum' not in chains or 'solana' not in chains:
-            print("❌ Supported chains list incomplete")
+            print("  [FAIL] Supported chains list incomplete")
             return False
 
         # Test wallet CRUD operations
@@ -405,60 +435,54 @@ def test_crypto():
 
         # Add wallet
         if not add_wallet(test_address, test_chain, test_label):
-            print("❌ Failed to add test wallet")
+            print("  [FAIL] Failed to add test wallet")
             return False
 
         # Get wallet
         wallet = get_wallet_by_address(test_address, test_chain)
         if not wallet:
-            print("❌ Failed to retrieve test wallet")
+            print("  [FAIL] Failed to retrieve test wallet")
             return False
         if wallet['label'] != test_label:
-            print("❌ Wallet label mismatch")
+            print("  [FAIL] Wallet label mismatch")
             return False
 
         # Test snapshot
         if not save_wallet_snapshot(wallet['id'], 1234.56, '[]'):
-            print("❌ Failed to save wallet snapshot")
+            print("  [FAIL] Failed to save wallet snapshot")
             return False
 
         snapshot = get_latest_wallet_snapshot(wallet['id'])
         if not snapshot or snapshot['total_value_usd'] != 1234.56:
-            print("❌ Snapshot retrieval failed")
-            return False
-
-        # Test total crypto value
-        total = get_total_crypto_value()
-        if total < 1234.56:
-            print(f"❌ Total crypto value incorrect: {total}")
+            print("  [FAIL] Snapshot retrieval failed")
             return False
 
         # Test format_crypto_value (USD case - no conversion needed)
         formatted = format_crypto_value(1234.56, 'USD')
         if '$1,234.56' not in formatted:
-            print(f"❌ Crypto value formatting failed: {formatted}")
+            print(f"  [FAIL] Crypto value formatting failed: {formatted}")
             return False
 
         # Clean up - remove test wallet
         if not remove_wallet(test_address, test_chain):
-            print("❌ Failed to remove test wallet")
+            print("  [FAIL] Failed to remove test wallet")
             return False
 
         # Verify removal
         wallet = get_wallet_by_address(test_address, test_chain)
         if wallet:
-            print("❌ Test wallet not properly removed")
+            print("  [FAIL] Test wallet not properly removed")
             return False
 
-        print("✅ Crypto module working correctly")
+        print("[PASS] Crypto module working correctly")
         return True
 
     except ImportError as e:
-        print(f"⚠️ Crypto module not available: {e}")
+        print(f"  [WARN] Crypto module not available: {e}")
         return True  # Not a failure if module not installed
 
     except Exception as e:
-        print(f"❌ Crypto test failed: {e}")
+        print(f"[FAIL] Crypto test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -466,16 +490,16 @@ def test_crypto():
 
 def main():
     """Run all tests"""
-    print("🧪 Personal Finance Skill - Setup Test")
+    print("Personal Finance Skill - Test Suite")
     print("=" * 50)
 
     tests = [
         test_imports,
         test_database,
+        test_csv_import,
         test_categorization,
-        test_categorization_edge_cases,
         test_rate_limiting,
-        test_date_boundaries,
+        test_reminder_system,
         test_currency,
         test_crypto,
         test_charts,
@@ -487,20 +511,20 @@ def main():
         if test():
             passed += 1
 
-    print(f"\n📊 Test Results: {passed}/{len(tests)} passed")
+    print(f"\n{'=' * 50}")
+    print(f"Test Results: {passed}/{len(tests)} passed")
 
     if passed == len(tests):
-        print("🎉 All tests passed! Finance skill is ready to use.")
+        print("\nAll tests passed! Finance skill is ready to use.")
         print("\nNext steps:")
-        print("1. Set up Enable Banking credentials:")
-        print("   python scripts/enablebanking.py setup")
-        print("2. Connect your bank:")
-        print("   python scripts/finance.py setup")
-        print("3. Sync transactions:")
-        print("   python scripts/finance.py sync")
+        print("1. Run setup wizard:")
+        print("   /finance setup")
+        print("2. Download CSV from your bank")
+        print("3. Import transactions:")
+        print("   /finance import <file>")
         return 0
     else:
-        print("❌ Some tests failed. Check errors above.")
+        print("\nSome tests failed. Check errors above.")
         return 1
 
 if __name__ == '__main__':

@@ -1,129 +1,153 @@
 # Personal Finance Skill
 
-Track your spending, analyze habits, and get automated insights from your bank accounts and crypto wallets.
+Track your spending from European bank accounts (via CSV import) and crypto wallets (via Zerion API).
 
-## Features
+## Why CSV Import?
 
-- **Bank Connection** — Connect 2,500+ European banks via Enable Banking Open Banking API
-- **Crypto Wallets** — Track EVM (Ethereum, Polygon, etc.) and Solana wallets via Zerion
-- **Multi-Currency** — All amounts displayed in your preferred currency
-- **Smart Categorization** — Auto-categorize transactions with Swiss merchant database
-- **Anomaly Detection** — Flag unusual spending (>2x category average)
-- **Visual Reports** — Mobile-optimized charts for Telegram/WhatsApp
-- **Budget Tracking** — Set limits and monitor progress
+European Open Banking APIs (PSD2) require third-party providers to be **registered and regulated** - this means business registration, legal URLs, and compliance requirements. For personal finance tracking, this isn't practical.
+
+CSV import is:
+- **Private**: Your data never leaves your machine
+- **Universal**: Works with any bank that exports CSV
+- **Simple**: Just download and share your statement
 
 ## Quick Start
 
-```bash
-# Install dependencies
-pip install requests matplotlib pyjwt
+1. Run `/finance setup` to configure your first account
+2. Download a CSV from your bank's online portal
+3. Share the CSV file and run `/finance import <file>`
+4. View spending with `/finance spending`
 
-# Run the setup wizard
-python skills/personal-finance/scripts/finance.py setup
-```
+## Supported Banks
 
-The setup wizard will guide you through:
-1. Getting Enable Banking API credentials
-2. Connecting your bank account
-3. Setting your home currency
-4. Adding crypto wallets (optional)
+Format is auto-detected for 20+ European banks:
 
-## API Keys
+**Switzerland:** UBS, Credit Suisse, PostFinance, Raiffeisen
+**Germany:** Deutsche Bank, Sparkasse, Commerzbank, ING DiBa
+**France:** BNP Paribas, Societe Generale, Credit Agricole
+**UK:** Barclays, HSBC, Lloyds
+**Netherlands:** ING, Rabobank, ABN AMRO
+**Austria:** Erste Bank
 
-This skill uses two external APIs. Both have free tiers.
-
-### Enable Banking (Required for banking)
-
-Provides access to 2,500+ European banks across 29 countries via Open Banking.
-
-| | |
-|---|---|
-| **Sign up** | https://enablebanking.com/sign-in/ |
-| **Get credentials** | Control Panel → API Applications → Register new app |
-| **Free tier** | Sandbox (auto-activated), Production (requires verification) |
-| **What you need** | `Application ID` and private key (.pem file) |
-
-### Zerion API (Required for crypto wallets)
-
-Provides portfolio data for EVM chains and Solana.
-
-| Plan | Requests/Day | Cost | Best For |
-|------|-------------|------|----------|
-| **Demo** (default) | 300 | Free | Testing |
-| **Developer** | 2,000 | Free | Personal use |
-| **Growth** | 1,000,000 | $499/mo | Production apps |
-
-| | |
-|---|---|
-| **Sign up** | https://developers.zerion.io |
-| **Get API key** | Dashboard → API Keys |
-| **Recommendation** | Sign up for free **Developer** key for 2,000 requests/day |
+Don't see your bank? The generic format handles most standard CSV exports.
 
 ## Commands
 
+### Bank Accounts
+
 | Command | Description |
 |---------|-------------|
-| `/finance setup` | Interactive setup wizard |
-| `/finance connect` | Connect additional bank account |
-| `/finance balance` | Show account balances |
-| `/finance spending [today/week/month]` | Spending summary |
-| `/finance report [daily/weekly/monthly]` | Generate report with chart |
-| `/finance sync` | Refresh transaction data |
-| `/finance compare <month1> [month2]` | Compare spending between months |
-| `/finance currency [code]` | Set or show home currency |
-| `/finance budget set <category> <amount>` | Set monthly budget |
-| `/finance budget show` | Show budget progress |
-| `/finance wallet add <address>` | Add crypto wallet |
-| `/finance wallet show` | Show crypto balances |
-| `/finance wallet sync` | Refresh crypto data |
-| `/finance accounts` | List connected accounts |
+| `/finance setup` | Initial setup wizard |
+| `/finance import <file>` | Import transactions from CSV |
+| `/finance import --list-banks` | List supported bank formats |
+| `/finance accounts` | List all accounts |
+| `/finance accounts remove --id <id>` | Remove an account |
 
-## Architecture
+### Spending & Analysis
+
+| Command | Description |
+|---------|-------------|
+| `/finance spending [today\|week\|month]` | Spending summary |
+| `/finance balance` | Account balances |
+| `/finance report [daily\|weekly\|monthly]` | Detailed reports |
+| `/finance compare <YYYY-MM> [YYYY-MM]` | Compare months |
+
+### Budgets
+
+| Command | Description |
+|---------|-------------|
+| `/finance budget set <category> <amount>` | Set monthly budget |
+| `/finance budget show` | View budget status |
+| `/finance categorize <txn_id> <category>` | Override category |
+
+### Reminders
+
+| Command | Description |
+|---------|-------------|
+| `/finance reminder status` | Check reminder settings |
+| `/finance reminder enable` | Enable monthly reminders |
+| `/finance reminder disable` | Disable reminders |
+| `/finance reminder set-day --day <1-28>` | Set reminder day |
+
+### Crypto Wallets
+
+| Command | Description |
+|---------|-------------|
+| `/finance wallet add <address>` | Add wallet |
+| `/finance wallet remove <address>` | Remove wallet |
+| `/finance wallet show [--detailed]` | View balances |
+| `/finance wallet sync` | Refresh data |
+| `/finance wallet list` | List all wallets |
+
+### Settings
+
+| Command | Description |
+|---------|-------------|
+| `/finance currency [CODE]` | Set/show home currency |
+
+## Features
+
+### Multi-Account Support
+Track multiple bank accounts and import CSVs into different accounts:
+```
+/finance import statement.csv --account "Main Checking"
+/finance import savings.csv --account "Savings"
+```
+
+### Deduplication
+Transactions are automatically deduplicated based on date, amount, and description. Import the same CSV twice and duplicates are skipped.
+
+### Monthly Reminders
+Get reminded at the end of each month to download and import your bank statements:
+```
+/finance reminder enable
+/finance reminder set-day --day 28
+```
+
+### Auto-Categorization
+Transactions are automatically categorized based on description patterns. Override any category with:
+```
+/finance categorize <transaction_id> groceries
+```
+
+### Spending Anomaly Detection
+Unusual spending is automatically flagged when it exceeds 2x your historical average.
+
+## Data Privacy
+
+- All data is stored locally in `~/.config/clawdbot-finance/`
+- No data is sent to external APIs (except Zerion for crypto)
+- CSV files are processed locally
+- Database file has restricted permissions (0o600)
+
+## Requirements
+
+- Python 3.8+
+- requests (for crypto API)
+- matplotlib (for charts)
+
+Install dependencies:
+```bash
+pip install requests matplotlib
+```
+
+## File Structure
 
 ```
 skills/personal-finance/
-├── SKILL.md              # Full documentation
+├── SKILL.md              # Skill metadata
 ├── scripts/
-│   ├── finance.py        # Main CLI entry point
-│   ├── enablebanking.py  # Enable Banking API client
-│   ├── crypto.py         # Zerion API client
-│   ├── currency.py       # Multi-currency conversion
-│   ├── db.py             # SQLite database
+│   ├── finance.py        # Main entry point
+│   ├── csv_import.py     # CSV import & bank formats
+│   ├── db.py             # Database operations
 │   ├── categorize.py     # Transaction categorization
-│   ├── charts.py         # Chart generation
-│   └── config.py         # Configuration settings
-├── templates/
-│   └── reports.py        # Report generation
-├── config/
-│   └── categories.json   # Category rules
-└── test_setup.py         # Test suite
+│   ├── currency.py       # Currency conversion
+│   ├── crypto.py         # Zerion wallet tracking
+│   └── config.py         # Configuration
+└── templates/
+    ├── reports.py        # Report generation
+    └── charts.py         # Chart generation
 ```
-
-## Security
-
-- **Read-only bank access** — Cannot initiate payments
-- **Local storage** — All data stays on your machine
-- **Encrypted credentials** — Stored in macOS Keychain (file fallback with 0600 permissions)
-- **Rate limiting** — Respects API limits
-
-## Data Storage
-
-| Data | Location |
-|------|----------|
-| Transactions | `~/.config/clawdbot-finance/transactions.db` |
-| Charts | `~/.config/clawdbot-finance/charts/` |
-| Reports | `~/.config/clawdbot-finance/reports/` |
-| Enable Banking credentials | macOS Keychain or `~/.config/enablebanking_creds.json` |
-| Zerion credentials | macOS Keychain or `~/.config/zerion_creds.json` |
-
-## Testing
-
-```bash
-cd skills/personal-finance
-python test_setup.py
-```
-
-Expected output: `10/10 tests passed`
 
 ## License
 

@@ -52,6 +52,7 @@ def init_database():
                 currency TEXT DEFAULT 'CHF',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 last_sync_at TEXT,
+                last_import_at TEXT,
                 access_expires_at TEXT
             )
         """)
@@ -936,6 +937,130 @@ def get_total_crypto_value() -> float:
         """)
         row = cursor.fetchone()
         return row['total'] if row and row['total'] else 0.0
+
+
+# ============================================================================
+# CSV Import Account Functions
+# ============================================================================
+
+def store_csv_account(account_id: str, name: str, currency: str = 'EUR') -> bool:
+    """
+    Store or update a CSV import account.
+
+    Args:
+        account_id: Unique identifier for the account
+        name: Friendly name for the account
+        currency: Account currency code
+
+    Returns:
+        True if successful
+    """
+    try:
+        with get_db() as conn:
+            # Check if account exists
+            cursor = conn.execute(
+                "SELECT id FROM accounts WHERE id = ?", (account_id,)
+            )
+            exists = cursor.fetchone() is not None
+
+            if exists:
+                # Update existing account
+                conn.execute("""
+                    UPDATE accounts
+                    SET name = ?, currency = ?, last_import_at = datetime('now')
+                    WHERE id = ?
+                """, (name, currency, account_id))
+            else:
+                # Insert new account
+                conn.execute("""
+                    INSERT INTO accounts
+                    (id, requisition_id, institution_id, institution_name, name, currency,
+                     created_at, access_expires_at)
+                    VALUES (?, 'csv', 'csv_import', 'CSV Import', ?, ?,
+                            datetime('now'), datetime('now', '+100 years'))
+                """, (account_id, name, currency))
+
+            conn.commit()
+            return True
+    except Exception:
+        return False
+
+
+def get_csv_accounts() -> List[Dict]:
+    """Get all CSV-imported accounts with stats."""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT
+                a.id,
+                a.name,
+                a.currency,
+                a.created_at,
+                a.last_import_at,
+                COUNT(t.id) as transaction_count,
+                MIN(t.booking_date) as oldest_transaction,
+                MAX(t.booking_date) as latest_transaction,
+                SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as total_spending,
+                SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as total_income
+            FROM accounts a
+            LEFT JOIN transactions t ON a.id = t.account_id
+            WHERE a.institution_id = 'csv_import'
+            GROUP BY a.id
+            ORDER BY a.name
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def delete_csv_account(account_id: str, delete_transactions: bool = True) -> bool:
+    """
+    Delete a CSV import account.
+
+    Args:
+        account_id: Account to delete
+        delete_transactions: Also delete associated transactions
+
+    Returns:
+        True if successful
+    """
+    try:
+        with get_db() as conn:
+            if delete_transactions:
+                conn.execute(
+                    "DELETE FROM transactions WHERE account_id = ?",
+                    (account_id,)
+                )
+
+            cursor = conn.execute(
+                "DELETE FROM accounts WHERE id = ? AND institution_id = 'csv_import'",
+                (account_id,)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception:
+        return False
+
+
+def get_account_transaction_count(account_id: str) -> int:
+    """Get number of transactions for an account."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT COUNT(*) as count FROM transactions WHERE account_id = ?",
+            (account_id,)
+        )
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+
+def get_transactions_for_period(account_id: str, start_date: date, end_date: date) -> List[Dict]:
+    """Get transactions for an account within a date range."""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT * FROM transactions
+            WHERE account_id = ?
+            AND booking_date >= ?
+            AND booking_date <= ?
+            ORDER BY booking_date DESC
+        """, (account_id, start_date.isoformat(), end_date.isoformat()))
+        return [dict(row) for row in cursor.fetchall()]
 
 
 # Initialize database on import
