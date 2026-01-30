@@ -384,7 +384,23 @@ def format_subscription_report(summary: Dict) -> List[str]:
             status = sub.get('status', 'active')
             status_indicator = "" if status == 'active' else f" ({status})"
 
-            lines.append(f"  {sub['name']}: {amount_str}{status_indicator}")
+            # Duration indicator (if start_date available)
+            duration_str = ""
+            start_date_str = sub.get('start_date')
+            if start_date_str:
+                try:
+                    start = date.fromisoformat(start_date_str)
+                    days = (date.today() - start).days
+                    if days >= 365:
+                        years = days // 365
+                        duration_str = f" ({years}y)"
+                    elif days >= 30:
+                        months = days // 30
+                        duration_str = f" ({months}mo)"
+                except (ValueError, TypeError):
+                    pass
+
+            lines.append(f"  {sub['name']}: {amount_str}{status_indicator}{duration_str}")
 
         lines.append("")
 
@@ -443,7 +459,8 @@ def cmd_add_subscription(
     category: str = None,
     next_billing: str = None,
     website: str = None,
-    notes: str = None
+    notes: str = None,
+    start_date: str = None
 ) -> bool:
     """Add a new subscription."""
     # Validate amount
@@ -456,6 +473,20 @@ def cmd_add_subscription(
     if cycle not in valid_cycles:
         print(f"Error: Invalid billing cycle '{cycle}'. Use: {', '.join(valid_cycles)}")
         return False
+
+    # Check for duplicate subscription
+    existing = get_subscriptions(include_cancelled=True)
+    for sub in existing:
+        if sub['name'].lower() == name.lower():
+            print(f"Warning: Subscription '{name}' already exists (ID #{sub['id']}, {sub['status']})")
+            try:
+                confirm = input("Add anyway? (y/n): ").strip().lower()
+                if confirm != 'y':
+                    print("Cancelled.")
+                    return False
+            except EOFError:
+                # Non-interactive mode - skip duplicate
+                return False
 
     # Auto-detect category from name
     if not category:
@@ -475,12 +506,17 @@ def cmd_add_subscription(
             merchant_pattern = pattern
             break
 
+    # Default start_date to today if not provided
+    if start_date is None:
+        start_date = date.today().isoformat()
+
     sub_id = add_subscription(
         name=name,
         amount=amount,
         currency=currency,
         billing_cycle=cycle,
         category=category,
+        start_date=start_date,
         next_billing_date=next_billing,
         merchant_pattern=merchant_pattern,
         website=website,

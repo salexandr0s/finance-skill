@@ -193,6 +193,7 @@ def init_database():
                 currency TEXT NOT NULL DEFAULT 'EUR',
                 billing_cycle TEXT NOT NULL DEFAULT 'monthly'
                     CHECK (billing_cycle IN ('weekly', 'monthly', 'quarterly', 'yearly')),
+                start_date TEXT,
                 next_billing_date TEXT,
                 last_billing_date TEXT,
                 category TEXT DEFAULT 'subscriptions',
@@ -205,6 +206,12 @@ def init_database():
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migration: Add start_date column if not exists (for existing databases)
+        try:
+            conn.execute("ALTER TABLE subscriptions ADD COLUMN start_date TEXT")
+        except:
+            pass  # Column already exists
 
         # Indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(booking_date)")
@@ -1100,23 +1107,40 @@ def add_subscription(
     next_billing_date: str = None,
     merchant_pattern: str = None,
     notes: str = None,
-    website: str = None
+    website: str = None,
+    start_date: str = None
 ) -> int:
     """
     Add a new subscription.
 
+    Args:
+        name: Subscription name (e.g., "Netflix")
+        amount: Amount per billing cycle
+        currency: Currency code (default: EUR)
+        billing_cycle: weekly, monthly, quarterly, yearly
+        category: Category for grouping
+        next_billing_date: Next billing date (YYYY-MM-DD)
+        merchant_pattern: Pattern for auto-detection linking
+        notes: Additional notes
+        website: Service website URL
+        start_date: When subscription started (YYYY-MM-DD, defaults to today)
+
     Returns:
         Subscription ID if successful, -1 on error
     """
+    # Default start_date to today if not provided
+    if start_date is None:
+        start_date = date.today().isoformat()
+
     try:
         with get_db() as conn:
             cursor = conn.execute("""
                 INSERT INTO subscriptions
                 (name, amount, currency, billing_cycle, category,
-                 next_billing_date, merchant_pattern, notes, website)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 start_date, next_billing_date, merchant_pattern, notes, website)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (name, amount, currency, billing_cycle, category,
-                  next_billing_date, merchant_pattern, notes, website))
+                  start_date, next_billing_date, merchant_pattern, notes, website))
             conn.commit()
             return cursor.lastrowid
     except Exception:
@@ -1231,9 +1255,20 @@ def get_subscription_totals() -> Dict:
     """
     Get subscription spending totals.
 
+    All amounts are converted to the user's home currency for totals.
+
     Returns:
         Dictionary with monthly_total, yearly_total, count, by_category
     """
+    # Import currency conversion (optional - gracefully degrade if not available)
+    try:
+        from currency import convert, get_home_currency
+        home_currency = get_home_currency()
+        currency_available = True
+    except ImportError:
+        home_currency = 'EUR'
+        currency_available = False
+
     with get_db() as conn:
         # Get active subscriptions
         cursor = conn.execute("""
@@ -1248,17 +1283,20 @@ def get_subscription_totals() -> Dict:
             'yearly_total': 0.0,
             'count': 0,
             'by_category': {},
-            'currency': 'EUR'
+            'subscriptions': [],
+            'currency': home_currency
         }
 
     monthly_total = 0.0
     by_category = {}
 
     for sub in subscriptions:
-        # Convert to monthly amount
+        # Get amount in original currency
         amount = sub['amount']
+        sub_currency = sub['currency']
         cycle = sub['billing_cycle']
 
+        # Convert to monthly amount first
         if cycle == 'yearly':
             monthly_amount = amount / 12
         elif cycle == 'quarterly':
@@ -1267,6 +1305,15 @@ def get_subscription_totals() -> Dict:
             monthly_amount = amount * 4.33
         else:  # monthly
             monthly_amount = amount
+
+        # Convert to home currency if different
+        if currency_available and sub_currency != home_currency:
+            try:
+                result = convert(monthly_amount, sub_currency, home_currency)
+                if result:
+                    monthly_amount = result[0]
+            except Exception:
+                pass  # Keep original amount if conversion fails
 
         monthly_total += monthly_amount
 
@@ -1282,7 +1329,7 @@ def get_subscription_totals() -> Dict:
         'count': len(subscriptions),
         'subscriptions': subscriptions,
         'by_category': by_category,
-        'currency': subscriptions[0]['currency'] if subscriptions else 'EUR'
+        'currency': home_currency
     }
 
 

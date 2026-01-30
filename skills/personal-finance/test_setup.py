@@ -77,7 +77,7 @@ def test_database():
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
 
-        expected_tables = {'accounts', 'transactions', 'balances', 'budgets', 'rate_limits', 'user_settings'}
+        expected_tables = {'accounts', 'transactions', 'balances', 'budgets', 'rate_limits', 'user_settings', 'subscriptions', 'wallets', 'wallet_snapshots'}
         if expected_tables.issubset(set(tables)):
             print("[PASS] All database tables created")
             return True
@@ -395,6 +395,140 @@ def test_currency():
         return False
 
 
+def test_subscriptions():
+    """Test subscription management"""
+    print("\nTesting subscriptions...")
+
+    try:
+        from db import (
+            add_subscription, get_subscriptions, delete_subscription,
+            get_subscription_by_id, update_subscription, get_subscription_totals
+        )
+        from subscriptions import (
+            cmd_add_subscription, format_subscription_report,
+            get_subscription_summary
+        )
+        import io
+        import sys
+
+        # Clean up any existing test subscriptions first
+        existing = get_subscriptions(include_cancelled=True)
+        for sub in existing:
+            if sub['name'] in ['Netflix', 'Claude', 'Adobe', 'Test']:
+                delete_subscription(sub['id'])
+
+        # Test add subscription
+        sub_id1 = add_subscription(
+            name='Netflix',
+            amount=15.99,
+            currency='EUR',
+            billing_cycle='monthly',
+            category='streaming'
+        )
+        if sub_id1 <= 0:
+            print("  [FAIL] Failed to add subscription")
+            return False
+        print("  Subscription add working")
+
+        # Test get subscription by ID
+        sub = get_subscription_by_id(sub_id1)
+        if not sub or sub['name'] != 'Netflix':
+            print("  [FAIL] Failed to retrieve subscription by ID")
+            return False
+        print("  Subscription retrieval working")
+
+        # Add more subscriptions for totals test
+        sub_id2 = add_subscription(
+            name='Claude',
+            amount=20.00,
+            currency='USD',
+            billing_cycle='monthly',
+            category='ai_productivity'
+        )
+        sub_id3 = add_subscription(
+            name='Adobe',
+            amount=599.00,
+            currency='EUR',
+            billing_cycle='yearly',
+            category='ai_productivity'
+        )
+
+        # Test totals calculation
+        totals = get_subscription_totals()
+        if totals['count'] != 3:
+            print(f"  [FAIL] Expected 3 subscriptions, got {totals['count']}")
+            return False
+
+        # Monthly total should include yearly divided by 12
+        # Note: Currency conversion may apply, so just check total > 0 and reasonable range
+        # With conversions: ~60-100 depending on exchange rates
+        if totals['monthly_total'] < 50 or totals['monthly_total'] > 150:
+            print(f"  [FAIL] Monthly total {totals['monthly_total']} outside expected range (50-150)")
+            return False
+        print(f"  Totals calculation working (monthly: {totals['monthly_total']} {totals['currency']})")
+
+        # Test category grouping
+        if 'streaming' not in totals['by_category']:
+            print("  [FAIL] Category grouping not working")
+            return False
+        print("  Category grouping working")
+
+        # Test pause/resume
+        update_subscription(sub_id1, status='paused')
+        sub = get_subscription_by_id(sub_id1)
+        if sub['status'] != 'paused':
+            print("  [FAIL] Pause subscription not working")
+            return False
+
+        update_subscription(sub_id1, status='active')
+        sub = get_subscription_by_id(sub_id1)
+        if sub['status'] != 'active':
+            print("  [FAIL] Resume subscription not working")
+            return False
+        print("  Pause/resume working")
+
+        # Test input validation in cmd_add_subscription
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+        result = cmd_add_subscription('Test', -10.00, 'monthly')
+        output = buffer.getvalue()
+        sys.stdout = old_stdout
+
+        if result or 'positive' not in output.lower():
+            print("  [FAIL] Negative amount validation not working")
+            return False
+        print("  Input validation working")
+
+        # Test report formatting
+        summary = get_subscription_summary()
+        lines = format_subscription_report(summary)
+        if not any('Monthly Total' in line for line in lines):
+            print("  [FAIL] Report formatting not working")
+            return False
+        print("  Report formatting working")
+
+        # Cleanup
+        delete_subscription(sub_id1)
+        delete_subscription(sub_id2)
+        delete_subscription(sub_id3)
+
+        # Verify cleanup
+        subs = get_subscriptions()
+        test_subs = [s for s in subs if s['name'] in ['Netflix', 'Claude', 'Adobe']]
+        if test_subs:
+            print("  [FAIL] Cleanup failed")
+            return False
+
+        print("[PASS] Subscription management working correctly")
+        return True
+
+    except Exception as e:
+        print(f"[FAIL] Subscription test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def test_crypto():
     """Test crypto wallet module"""
     print("\nTesting crypto wallet module...")
@@ -500,6 +634,7 @@ def main():
         test_categorization,
         test_rate_limiting,
         test_reminder_system,
+        test_subscriptions,
         test_currency,
         test_crypto,
         test_charts,
