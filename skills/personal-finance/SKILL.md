@@ -315,4 +315,43 @@ Install: `pip install requests matplotlib`
 
 ---
 
+## Agent Behavior
+
+When this skill is active, the agent should proactively:
+
+### Monthly Reminder Check
+At the start of each conversation (especially near end of month), check if it's time to remind the user to import their bank statements:
+
+```python
+from csv_import import should_send_reminder, get_reminder_message, mark_reminder_sent
+
+should_send, reason = should_send_reminder()
+if should_send:
+    message = get_reminder_message()
+    # Display the reminder to the user
+    mark_reminder_sent()  # Mark as sent so we don't repeat
+```
+
+If the reminder system is not yet configured and the user has bank accounts set up, ask:
+
+> "Would you like me to remind you at the end of each month to download and import your latest bank statements? I can send you a reminder around day 25-28 of each month."
+
+### After First Import
+After the user successfully imports their first CSV file, offer to set up monthly reminders:
+
+> "Great! I've imported your transactions. Would you like me to remind you each month to download your latest bank statements? This helps keep your spending data up to date."
+
+### Proactive Spending Insights
+When the user imports new transactions, proactively offer insights:
+- Show a quick spending summary for the imported period
+- Flag any unusual spending (anomalies)
+- Compare to previous month if data available
+
+### End of Month Check
+Around day 25-28 of each month, if the user has configured accounts but hasn't imported recent data, proactively ask:
+
+> "I noticed your last bank import was from [date]. Would you like to download and import your latest statements? I can help you track your spending for this month."
+
+---
+
 **Note:** This skill uses CSV import because European Open Banking APIs require regulated third-party provider status. CSV works reliably with any bank and keeps your data fully private.

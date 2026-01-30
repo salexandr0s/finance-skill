@@ -466,6 +466,23 @@ def cmd_import(file_path: str = None, account: str = None,
                 print()
                 print("Run '/finance spending' to see your spending summary!")
 
+                # Check if this is the first import and reminders aren't configured
+                try:
+                    from csv_import import get_reminder_settings
+                    settings = get_reminder_settings()
+
+                    # If reminders not enabled, offer to set them up
+                    if not settings['enabled']:
+                        print()
+                        print("-" * 50)
+                        enable = input("Would you like monthly reminders to import your bank statements? (y/n): ").strip().lower()
+                        if enable == 'y':
+                            from csv_import import set_reminder_settings
+                            set_reminder_settings(enabled=True, day_of_month=28)
+                            print("Monthly reminders enabled! I'll remind you around day 28 each month.")
+                except Exception:
+                    pass  # Don't fail import if reminder setup fails
+
             return 0
         else:
             print(f"Import failed: {result.get('error', 'Unknown error')}")
