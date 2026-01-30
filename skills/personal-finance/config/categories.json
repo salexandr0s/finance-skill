@@ -1,0 +1,318 @@
+{
+  "categories": [
+    {
+      "name": "groceries",
+      "emoji": "🛒",
+      "keywords": [
+        "migros", "coop", "manor", "denner", "aldi", "lidl", "spar",
+        "volg", "aperto", "supermarket", "grocery", "lebensmittel",
+        "epicerie", "grocery", "market"
+      ],
+      "patterns": [
+        "(?i)migros.*",
+        "(?i)coop.*", 
+        "(?i)manor.*food.*",
+        "(?i).*supermarkt.*",
+        "(?i).*grocery.*",
+        "(?i)denner.*",
+        "(?i)aldi.*",
+        "(?i)lidl.*"
+      ]
+    },
+    {
+      "name": "dining",
+      "emoji": "🍽️",
+      "keywords": [
+        "restaurant", "cafe", "starbucks", "mcdonald", "burger king",
+        "subway", "pizza", "kebab", "bistro", "bar", "pub",
+        "takeaway", "delivery", "uber eats", "just eat", "coffee",
+        "lunch", "dinner", "breakfast"
+      ],
+      "patterns": [
+        "(?i).*restaurant.*",
+        "(?i).*cafe.*",
+        "(?i).*coffee.*",
+        "(?i).*pizza.*",
+        "(?i)starbucks.*",
+        "(?i)mc.*donald.*",
+        "(?i)burger.*king.*",
+        "(?i).*kebab.*"
+      ]
+    },
+    {
+      "name": "transport",
+      "emoji": "🚃",
+      "keywords": [
+        "sbb", "zvv", "tpg", "vbl", "bvb", "uber", "taxi", "parking",
+        "tankstelle", "petrol", "gas", "mobility", "car2go",
+        "share now", "publibike", "lime", "bird", "tier", "train",
+        "bus", "tram", "transport", "verkehr"
+      ],
+      "patterns": [
+        "(?i)sbb.*",
+        "(?i)zvv.*",
+        "(?i)tpg.*",
+        "(?i).*taxi.*",
+        "(?i).*parking.*",
+        "(?i).*tankstelle.*",
+        "(?i)uber.*",
+        "(?i)mobility.*",
+        "(?i).*transport.*"
+      ]
+    },
+    {
+      "name": "shopping",
+      "emoji": "🛍️",
+      "keywords": [
+        "amazon", "zalando", "h&m", "zara", "manor", "globus",
+        "interdiscount", "digitec", "galaxus", "media markt",
+        "ikea", "bauhaus", "obi", "landi", "jumbo", "clothing",
+        "electronics", "furniture", "home", "fashion"
+      ],
+      "patterns": [
+        "(?i)amazon.*",
+        "(?i)zalando.*",
+        "(?i)digitec.*",
+        "(?i)galaxus.*",
+        "(?i)interdiscount.*",
+        "(?i)manor.*",
+        "(?i)h&m.*",
+        "(?i)zara.*",
+        "(?i)ikea.*"
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "emoji": "📺",
+      "keywords": [
+        "netflix", "spotify", "apple", "google", "microsoft",
+        "adobe", "dropbox", "icloud", "youtube", "prime",
+        "disney", "subscription", "monthly", "annual", "recurring",
+        "apple music", "apple tv", "apple one"
+      ],
+      "patterns": [
+        "(?i)netflix.*",
+        "(?i)spotify.*",
+        "(?i)apple.*subscription.*",
+        "(?i)apple.*music.*",
+        "(?i)apple.*tv.*",
+        "(?i)apple.*one.*",
+        "(?i)icloud.*",
+        "(?i)apple\\.com/bill.*",
+        "(?i)google.*one.*",
+        "(?i).*monthly.*",
+        "(?i).*subscription.*",
+        "(?i)adobe.*",
+        "(?i)microsoft.*365.*"
+      ]
+    },
+    {
+      "name": "utilities",
+      "emoji": "⚡",
+      "keywords": [
+        "ewz", "swisscom", "sunrise", "salt", "swissgas",
+        "energie", "electricity", "water", "heating", "internet",
+        "phone", "mobile", "insurance", "versicherung", "bill",
+        "rechnung", "utilities", "strom", "gas", "wasser"
+      ],
+      "patterns": [
+        "(?i)swisscom.*",
+        "(?i)sunrise.*",
+        "(?i)salt.*",
+        "(?i).*energie.*",
+        "(?i).*electricity.*",
+        "(?i).*versicherung.*",
+        "(?i).*insurance.*",
+        "(?i)ewz.*",
+        "(?i).*rechnung.*"
+      ]
+    },
+    {
+      "name": "entertainment",
+      "emoji": "🎮",
+      "keywords": [
+        "cinema", "kino", "theater", "concert", "tickets",
+        "steam", "playstation", "xbox", "nintendo", "game",
+        "ticketcorner", "starticket", "eventim", "movies",
+        "music", "books", "culture"
+      ],
+      "patterns": [
+        "(?i).*cinema.*",
+        "(?i).*kino.*",
+        "(?i).*tickets.*",
+        "(?i)steam.*",
+        "(?i)playstation.*",
+        "(?i)xbox.*",
+        "(?i)nintendo.*",
+        "(?i)ticketcorner.*"
+      ]
+    },
+    {
+      "name": "health",
+      "emoji": "🏥",
+      "keywords": [
+        "pharmacy", "apotheke", "doctor", "dentist", "hospital",
+        "zahnarzt", "arzt", "medizin", "fitness", "gym",
+        "physiotherapy", "massage", "medical", "health",
+        "gesundheit", "medicine"
+      ],
+      "patterns": [
+        "(?i).*apotheke.*",
+        "(?i).*pharmacy.*",
+        "(?i).*medical.*",
+        "(?i).*fitness.*",
+        "(?i).*gym.*",
+        "(?i).*arzt.*",
+        "(?i).*doctor.*",
+        "(?i).*zahnarzt.*"
+      ]
+    },
+    {
+      "name": "housing",
+      "emoji": "🏠",
+      "keywords": [
+        "rent", "miete", "mortgage", "hypothek", "utilities",
+        "cleaning", "maintenance", "repairs", "furniture",
+        "wohnung", "haus", "home", "housing", "immobilie"
+      ],
+      "patterns": [
+        "(?i).*miete.*",
+        "(?i).*rent.*",
+        "(?i).*hypothek.*",
+        "(?i).*mortgage.*",
+        "(?i).*wohnung.*",
+        "(?i).*immobilie.*"
+      ]
+    },
+    {
+      "name": "transfers",
+      "emoji": "↔️", 
+      "keywords": [
+        "twint", "transfer", "überweisung", "paypal", "revolut",
+        "wise", "westernunion", "bank transfer", "geld", "money",
+        "payment", "zahlung"
+      ],
+      "patterns": [
+        "(?i)twint.*",
+        "(?i).*transfer.*",
+        "(?i).*überweisung.*",
+        "(?i)paypal.*",
+        "(?i)revolut.*",
+        "(?i).*payment.*"
+      ]
+    },
+    {
+      "name": "income",
+      "emoji": "💰",
+      "keywords": [
+        "salary", "lohn", "gehalt", "bonus", "dividend",
+        "interest", "zins", "refund", "cashback", "income"
+      ],
+      "patterns": [
+        "(?i).*salary.*",
+        "(?i).*lohn.*",
+        "(?i).*gehalt.*",
+        "(?i).*bonus.*",
+        "(?i).*dividend.*"
+      ]
+    }
+  ],
+  "mcc_mappings": {
+    "5411": "groceries",
+    "5421": "groceries", 
+    "5441": "groceries",
+    "5499": "groceries",
+    "5812": "dining",
+    "5813": "dining",
+    "5814": "dining",
+    "5921": "entertainment",
+    "4111": "transport",
+    "4121": "transport",
+    "4131": "transport",
+    "5541": "transport",
+    "5542": "transport",
+    "5300": "shopping",
+    "5651": "shopping",
+    "5691": "shopping", 
+    "5732": "shopping",
+    "5734": "shopping",
+    "5735": "shopping",
+    "4899": "utilities",
+    "4900": "utilities",
+    "5968": "subscriptions",
+    "5969": "subscriptions",
+    "8011": "health",
+    "8021": "health",
+    "8031": "health",
+    "8041": "health",
+    "8062": "health",
+    "8099": "health",
+    "7011": "housing",
+    "7012": "housing",
+    "1520": "housing",
+    "1711": "housing",
+    "1731": "housing",
+    "1740": "housing",
+    "6010": "transfers",
+    "6011": "transfers",
+    "6051": "transfers"
+  },
+  "swiss_merchants": {
+    "MIGROS": "groceries",
+    "COOP": "groceries", 
+    "MANOR FOOD": "groceries",
+    "DENNER": "groceries",
+    "ALDI SUISSE": "groceries",
+    "LIDL SCHWEIZ": "groceries",
+    "VOLG": "groceries",
+    "SPAR": "groceries",
+    
+    "SBB": "transport",
+    "ZVV": "transport", 
+    "TPG": "transport",
+    "BVB": "transport",
+    "VBL": "transport",
+    "MOBILITY CARSHARING": "transport",
+    "PUBLIBIKE": "transport",
+    
+    "SWISSCOM": "utilities",
+    "SUNRISE": "utilities",
+    "SALT": "utilities",
+    "UPC": "utilities",
+    "EWZ": "utilities",
+    "SWISSGAS": "utilities",
+    
+    "MANOR": "shopping",
+    "GLOBUS": "shopping",
+    "INTERDISCOUNT": "shopping",
+    "DIGITEC GALAXUS": "shopping",
+    "MEDIA MARKT": "shopping",
+    "IKEA": "shopping",
+    "BAUHAUS": "shopping",
+    "OBI": "shopping",
+    "LANDI": "shopping",
+    "JUMBO": "shopping",
+    
+    "APOTHEKE": "health",
+    "PHARMACY": "health",
+    "DROGERIE": "health",
+    "FITNESS": "health",
+    "FITNESSCENTER": "health",
+    "PHYSIOTHERAPIE": "health",
+    
+    "TICKETCORNER": "entertainment",
+    "STARTICKET": "entertainment",
+    "EVENTIM": "entertainment",
+    "KINO": "entertainment",
+    "CINEMA": "entertainment",
+    
+    "TWINT": "transfers",
+    "REVOLUT": "transfers",
+    "PAYPAL": "transfers"
+  },
+  "anomaly_detection": {
+    "multiplier_threshold": 2.0,
+    "minimum_transactions": 3,
+    "lookback_periods": 6
+  }
+}
