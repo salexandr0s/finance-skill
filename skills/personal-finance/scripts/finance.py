@@ -63,6 +63,25 @@ def main():
     currency_parser = subparsers.add_parser('currency', help='Set or show home currency')
     currency_parser.add_argument('code', nargs='?', help='Currency code (e.g., EUR, USD, CHF). Omit to show current.')
 
+    # Wallet commands
+    wallet_parser = subparsers.add_parser('wallet', help='Crypto wallet operations')
+    wallet_sub = wallet_parser.add_subparsers(dest='wallet_action', help='Wallet actions')
+
+    wallet_add = wallet_sub.add_parser('add', help='Add wallet address')
+    wallet_add.add_argument('address', help='Wallet address')
+    wallet_add.add_argument('--chain', default='ethereum', help='Blockchain (ethereum, solana, polygon, etc.)')
+    wallet_add.add_argument('--label', help='Friendly name for wallet')
+
+    wallet_remove = wallet_sub.add_parser('remove', help='Remove wallet')
+    wallet_remove.add_argument('address', help='Wallet address to remove')
+
+    wallet_show = wallet_sub.add_parser('show', help='Show wallet balances')
+    wallet_show.add_argument('--detailed', action='store_true', help='Show token breakdown')
+
+    wallet_sync = wallet_sub.add_parser('sync', help='Force refresh wallet data')
+
+    wallet_list = wallet_sub.add_parser('list', help='List all wallets')
+
     args = parser.parse_args()
     
     if args.command == 'setup':
@@ -91,6 +110,20 @@ def main():
         return cmd_compare(args.month1, args.month2)
     elif args.command == 'currency':
         return cmd_currency(args.code)
+    elif args.command == 'wallet':
+        if args.wallet_action == 'add':
+            return cmd_wallet_add(args.address, args.chain, args.label)
+        elif args.wallet_action == 'remove':
+            return cmd_wallet_remove(args.address)
+        elif args.wallet_action == 'show':
+            return cmd_wallet_show(args.detailed)
+        elif args.wallet_action == 'sync':
+            return cmd_wallet_sync()
+        elif args.wallet_action == 'list':
+            return cmd_wallet_list()
+        else:
+            wallet_parser.print_help()
+            return 1
     else:
         parser.print_help()
         return 1
@@ -221,6 +254,80 @@ def cmd_setup(country: str) -> int:
                 print(f"⚠️ Unknown currency '{currency_input}', keeping {current}")
         else:
             print(f"✅ Keeping current currency: {current}")
+
+        # Step 4: Add Crypto Wallets (Optional)
+        print()
+        print("─" * 60)
+        print("🪙 STEP 4: Add Crypto Wallets (Optional)")
+        print("─" * 60)
+        print()
+        print("Track your crypto portfolio alongside bank accounts.")
+        print("Supported: Ethereum, Solana, Polygon, Arbitrum, Base, and more")
+        print()
+
+        add_crypto = input("Would you like to add a crypto wallet? (y/n): ").strip().lower()
+        if add_crypto == 'y':
+            from crypto import (
+                has_zerion_credentials, save_zerion_api_key, get_supported_chains,
+                normalize_chain, ZerionClient
+            )
+            from db import add_wallet
+
+            # Check for Zerion API key
+            if not has_zerion_credentials():
+                print()
+                print("To track crypto wallets, you need a free Zerion API key:")
+                print("👉 Go to: https://developers.zerion.io")
+                print("   1. Sign up for free (no credit card required)")
+                print("   2. Get your API key from the dashboard")
+                print()
+                api_key = input("Enter your Zerion API key: ").strip()
+                if api_key:
+                    if save_zerion_api_key(api_key):
+                        print("✅ API key saved!")
+                    else:
+                        print("⚠️ Could not save API key, skipping crypto setup.")
+                        add_crypto = 'n'
+                else:
+                    print("⚠️ No API key provided, skipping crypto setup.")
+                    add_crypto = 'n'
+
+            # Add wallets in a loop
+            if add_crypto == 'y':
+                print()
+                print("Supported chains:", ", ".join(get_supported_chains()[:8]), "...")
+                while True:
+                    print()
+                    address = input("Wallet address (or press Enter to finish): ").strip()
+                    if not address:
+                        break
+
+                    chain = input("Blockchain [ethereum]: ").strip().lower() or 'ethereum'
+                    label = input("Label (optional): ").strip() or None
+
+                    chain_normalized = normalize_chain(chain)
+
+                    # Validate and add wallet
+                    print("🔍 Validating wallet...")
+                    try:
+                        client = ZerionClient()
+                        client.get_portfolio(address)
+                        print("✅ Wallet validated!")
+
+                        if add_wallet(address, chain_normalized, label):
+                            display = label or f"{address[:6]}...{address[-4:]}"
+                            print(f"✅ Added: {display} on {chain_normalized}")
+                        else:
+                            print("⚠️ Wallet already exists or could not be added")
+                    except Exception as e:
+                        print(f"⚠️ Could not validate wallet: {e}")
+                        add_anyway = input("Add anyway? (y/n): ").strip().lower()
+                        if add_anyway == 'y':
+                            if add_wallet(address, chain_normalized, label):
+                                print("✅ Wallet added (unvalidated)")
+        else:
+            print("Skipping crypto setup. You can add wallets later with:")
+            print("  /finance wallet add <address> --chain ethereum --label 'My Wallet'")
 
         # Done!
         print()
@@ -716,6 +823,227 @@ def detect_spending_anomalies(current_spending: Dict[str, float], period: str) -
     except Exception:
         # If historical data not available, no anomalies
         return {}
+
+
+# ============================================================================
+# Crypto Wallet Commands
+# ============================================================================
+
+def cmd_wallet_add(address: str, chain: str, label: str = None) -> int:
+    """Add a crypto wallet address"""
+    try:
+        from db import add_wallet, get_wallet_by_address
+        from crypto import (
+            has_zerion_credentials, save_zerion_api_key,
+            normalize_chain, get_supported_chains, ZerionClient
+        )
+
+        # Check if Zerion API key is configured
+        if not has_zerion_credentials():
+            print("❌ Zerion API key not configured.")
+            print()
+            print("To track crypto wallets, you need a free Zerion API key:")
+            print("👉 Go to: https://developers.zerion.io")
+            print("   1. Sign up for free")
+            print("   2. Get your API key from the dashboard")
+            print()
+            api_key = input("Enter your Zerion API key (or press Enter to skip): ").strip()
+            if not api_key:
+                print("⚠️ Wallet not added. Configure API key first.")
+                return 1
+            if not save_zerion_api_key(api_key):
+                print("❌ Failed to save API key")
+                return 1
+            print("✅ API key saved!")
+            print()
+
+        # Normalize chain name
+        chain_normalized = normalize_chain(chain)
+        supported = get_supported_chains()
+        if chain.lower() not in [c.lower() for c in supported]:
+            print(f"⚠️ Chain '{chain}' may not be fully supported.")
+            print(f"   Supported chains: {', '.join(supported[:8])}...")
+
+        # Check if wallet already exists
+        existing = get_wallet_by_address(address, chain_normalized)
+        if existing:
+            print(f"⚠️ Wallet already exists: {existing.get('label', address[:8])}")
+            return 1
+
+        # Validate address by fetching portfolio
+        print(f"🔍 Validating wallet address...")
+        try:
+            client = ZerionClient()
+            portfolio = client.get_portfolio(address)
+            print("✅ Wallet validated!")
+        except Exception as e:
+            print(f"⚠️ Could not validate wallet (may still work): {e}")
+
+        # Add wallet to database
+        if add_wallet(address, chain_normalized, label):
+            display_name = label or f"{address[:6]}...{address[-4:]}"
+            print(f"✅ Wallet added: {display_name} on {chain_normalized}")
+            print()
+            print("💡 Run `/finance wallet sync` to fetch balances")
+            return 0
+        else:
+            print("❌ Failed to add wallet")
+            return 1
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error adding wallet: {e}")
+        return 1
+
+
+def cmd_wallet_remove(address: str) -> int:
+    """Remove a crypto wallet"""
+    try:
+        from db import remove_wallet, get_wallet_by_address
+
+        # Find wallet
+        wallet = get_wallet_by_address(address)
+        if not wallet:
+            print(f"❌ Wallet not found: {address[:8]}...")
+            return 1
+
+        # Confirm removal
+        label = wallet.get('label') or f"{address[:6]}...{address[-4:]}"
+        confirm = input(f"Remove wallet '{label}'? (y/n): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            return 0
+
+        if remove_wallet(address):
+            print(f"✅ Wallet removed: {label}")
+            return 0
+        else:
+            print("❌ Failed to remove wallet")
+            return 1
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error removing wallet: {e}")
+        return 1
+
+
+def cmd_wallet_show(detailed: bool = False) -> int:
+    """Show crypto wallet balances"""
+    try:
+        from crypto import format_wallet_summary, has_zerion_credentials
+        from db import get_wallets
+
+        wallets = get_wallets()
+        if not wallets:
+            print("No crypto wallets configured.")
+            print("Use `/finance wallet add <address>` to add one.")
+            return 0
+
+        if not has_zerion_credentials():
+            print("⚠️ Zerion API key not configured. Run `/finance wallet add` to set up.")
+            return 1
+
+        summary = format_wallet_summary(include_positions=detailed)
+        print(summary)
+        return 0
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error showing wallets: {e}")
+        return 1
+
+
+def cmd_wallet_sync() -> int:
+    """Sync all crypto wallets"""
+    try:
+        from crypto import sync_all_wallets, has_zerion_credentials, format_crypto_value
+        from db import get_wallets
+
+        wallets = get_wallets()
+        if not wallets:
+            print("No crypto wallets configured.")
+            print("Use `/finance wallet add <address>` to add one.")
+            return 0
+
+        if not has_zerion_credentials():
+            print("❌ Zerion API key not configured. Run `/finance wallet add` to set up.")
+            return 1
+
+        print(f"🔄 Syncing {len(wallets)} wallet(s)...")
+        print()
+
+        results = sync_all_wallets(force=True)
+
+        total = 0.0
+        for wallet in wallets:
+            wallet_id = wallet['id']
+            label = wallet['label'] or f"{wallet['blockchain'].title()} Wallet"
+            value = results.get(wallet_id, 0)
+            total += value
+
+            value_str = format_crypto_value(value)
+            print(f"  ✅ {label}: {value_str}")
+
+        print()
+        total_str = format_crypto_value(total)
+        print(f"📊 Total Crypto: {total_str}")
+        return 0
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error syncing wallets: {e}")
+        return 1
+
+
+def cmd_wallet_list() -> int:
+    """List all configured wallets"""
+    try:
+        from db import get_wallets, get_latest_wallet_snapshot
+
+        wallets = get_wallets()
+        if not wallets:
+            print("No crypto wallets configured.")
+            print("Use `/finance wallet add <address>` to add one.")
+            return 0
+
+        print("🪙 Configured Wallets")
+        print("=" * 60)
+
+        for wallet in wallets:
+            label = wallet['label'] or 'Unnamed'
+            chain = wallet['blockchain'].title()
+            address = wallet['address']
+            address_short = f"{address[:10]}...{address[-6:]}"
+            created = wallet['created_at'][:10] if wallet.get('created_at') else 'Unknown'
+
+            snapshot = get_latest_wallet_snapshot(wallet['id'])
+            last_sync = snapshot['snapshot_date'] if snapshot else 'Never'
+            value = f"${snapshot['total_value_usd']:,.2f}" if snapshot else 'Not synced'
+
+            print(f"• {label}")
+            print(f"  Chain: {chain}")
+            print(f"  Address: {address_short}")
+            print(f"  Value: {value}")
+            print(f"  Added: {created} | Last sync: {last_sync}")
+            print()
+
+        return 0
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error listing wallets: {e}")
+        return 1
+
 
 if __name__ == '__main__':
     sys.exit(main())

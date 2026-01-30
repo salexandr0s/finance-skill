@@ -425,7 +425,25 @@ def generate_monthly_report(target_date: date = None) -> Optional[Report]:
             text_lines.extend(insights)
         else:
             text_lines.append("• No significant patterns detected this month")
-        
+
+        # Add crypto holdings section
+        crypto_lines, crypto_usd, crypto_home = get_crypto_section()
+        if crypto_lines:
+            text_lines.extend(crypto_lines)
+
+        # Calculate total assets (bank + crypto)
+        total_assets = total_balance + crypto_home
+
+        # Add total assets summary if we have crypto
+        if crypto_home > 0:
+            text_lines.extend([
+                "",
+                "💎 **Total Assets:**",
+                f"Bank Accounts: {total_balance:>10,.0f} CHF",
+                f"Crypto:        {crypto_home:>10,.0f} CHF",
+                f"**Total:       {total_assets:>10,.0f} CHF**"
+            ])
+
         # Create report
         report = Report(
             type='monthly',
@@ -439,10 +457,13 @@ def generate_monthly_report(target_date: date = None) -> Optional[Report]:
                 'net_savings': net_savings,
                 'savings_rate': savings_rate,
                 'total_balance': total_balance,
-                'previous_expenses': total_prev_expenses
+                'previous_expenses': total_prev_expenses,
+                'crypto_total_usd': crypto_usd,
+                'crypto_total_home': crypto_home,
+                'total_assets': total_assets
             }
         )
-        
+
         return report
         
     except Exception as e:
@@ -454,7 +475,7 @@ def get_category_emoji(category: str) -> str:
     emojis = {
         'groceries': '🛒',
         'dining': '🍽️',
-        'transport': '🚃', 
+        'transport': '🚃',
         'shopping': '🛍️',
         'subscriptions': '📺',
         'utilities': '⚡',
@@ -466,6 +487,68 @@ def get_category_emoji(category: str) -> str:
         'other': '📦'
     }
     return emojis.get(category.lower(), '📦')
+
+
+def get_crypto_section() -> tuple:
+    """
+    Generate crypto holdings section for reports.
+
+    Returns:
+        Tuple of (text_lines: List[str], total_usd: float, total_home: float)
+    """
+    try:
+        from db import get_wallets, get_latest_wallet_snapshot
+        from crypto import format_crypto_value, sync_all_wallets
+
+        wallets = get_wallets()
+        if not wallets:
+            return [], 0.0, 0.0
+
+        # Sync wallets to get latest values
+        try:
+            sync_all_wallets(force=False)  # Use cached if recent
+        except Exception:
+            pass  # Continue with cached data if sync fails
+
+        lines = [
+            "",
+            "🪙 **Crypto Holdings:**"
+        ]
+
+        total_usd = 0.0
+        for wallet in wallets:
+            snapshot = get_latest_wallet_snapshot(wallet['id'])
+            if snapshot:
+                value_usd = snapshot['total_value_usd']
+                total_usd += value_usd
+
+                label = wallet['label'] or f"{wallet['blockchain'].title()} Wallet"
+                value_str = format_crypto_value(value_usd)
+                lines.append(f"• {label}: {value_str}")
+
+        if total_usd > 0:
+            total_str = format_crypto_value(total_usd)
+            lines.append(f"**Total Crypto: {total_str}**")
+
+        # Convert total to home currency
+        total_home = total_usd
+        try:
+            from currency import convert
+            home_currency = get_home_currency()
+            if home_currency.upper() != 'USD':
+                result = convert(total_usd, 'USD', home_currency)
+                if result:
+                    total_home = result[0]
+        except Exception:
+            pass
+
+        return lines, total_usd, total_home
+
+    except ImportError:
+        return [], 0.0, 0.0
+    except Exception as e:
+        print(f"Warning: Could not get crypto data: {e}")
+        return [], 0.0, 0.0
 
 def save_report(report: Report, output_dir: Path = None) -> str:
     """Save report to file"""

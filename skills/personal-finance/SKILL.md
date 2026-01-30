@@ -98,6 +98,11 @@ set_key('gocardless_secret_key', 'your_secret_key_here')
 | `/finance accounts` | List connected accounts | `/finance accounts` |
 | `/finance compare <month1> [month2]` | Compare spending between months | `/finance compare 2026-01 2025-12` |
 | `/finance currency [code]` | Set or show home currency | `/finance currency EUR` |
+| `/finance wallet add <address>` | Add crypto wallet | `/finance wallet add 0x123... --chain ethereum` |
+| `/finance wallet remove <address>` | Remove crypto wallet | `/finance wallet remove 0x123...` |
+| `/finance wallet show` | Show crypto balances | `/finance wallet show --detailed` |
+| `/finance wallet sync` | Refresh crypto data | `/finance wallet sync` |
+| `/finance wallet list` | List all wallets | `/finance wallet list` |
 
 ## Spending Periods
 
@@ -146,6 +151,62 @@ Example output:
 ```
 🛒 Groceries: 45.50 CHF (€42.32)
 🍽️ Dining: $28.99 (€26.78)
+```
+
+## Crypto Wallet Tracking
+
+Track your crypto portfolio alongside bank accounts using the Zerion API.
+
+### Supported Blockchains
+
+Ethereum, Solana, Polygon, Arbitrum, Optimism, Base, Avalanche, BSC, Fantom, zkSync, Linea, and more.
+
+### Setup
+
+1. Get a free Zerion API key at https://developers.zerion.io
+2. Add wallets during `/finance setup` or anytime with:
+
+```bash
+/finance wallet add 0xYourAddress --chain ethereum --label "Main Wallet"
+/finance wallet add SolanaAddress --chain solana --label "Solana Trading"
+```
+
+### Wallet Commands
+
+```bash
+# Add a wallet
+/finance wallet add <address> --chain <blockchain> --label "Name"
+
+# View all wallet balances
+/finance wallet show
+
+# View with token breakdown
+/finance wallet show --detailed
+
+# Refresh wallet data
+/finance wallet sync
+
+# List configured wallets
+/finance wallet list
+
+# Remove a wallet
+/finance wallet remove <address>
+```
+
+### Reports Integration
+
+Monthly reports automatically include crypto holdings:
+
+```
+🪙 Crypto Holdings:
+• Main Wallet: €4,234.56 ($4,612.00)
+• Solana Trading: €1,890.23 ($2,059.15)
+Total Crypto: €6,124.79
+
+💎 Total Assets:
+Bank Accounts:    12,500 CHF
+Crypto:            6,125 CHF
+Total:            18,625 CHF
 ```
 
 ## Anomaly Detection
@@ -270,13 +331,14 @@ python ~/.config/clawdbot/skills/personal-finance/scripts/gocardless.py setup
 The skill consists of:
 
 - **finance.py** — Main CLI entry point with commands
-- **gocardless.py** — API client with auth flow
+- **gocardless.py** — GoCardless API client with auth flow
+- **crypto.py** — Zerion API client for crypto wallets
 - **db.py** — SQLite operations with secure storage
 - **categorize.py** — Rule-based transaction categorization
 - **currency.py** — Multi-currency conversion (Frankfurter API)
 - **charts.py** — Mobile-optimized chart generation
 - **config.py** — Centralized configuration settings
-- **templates/reports.py** — Report generation with currency support
+- **templates/reports.py** — Report generation with crypto + currency support
 
 Charts use matplotlib with mobile-friendly settings (800px width, readable fonts).
 

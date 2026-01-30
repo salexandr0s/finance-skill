@@ -26,3 +26,27 @@ API_TIMEOUT_SECONDS = 60  # Timeout for GoCardless API calls
 # Database settings
 DB_FILE_PERMISSIONS = 0o600  # Owner read/write only
 CREDENTIAL_FILE_PERMISSIONS = 0o600  # Owner read/write only
+
+# Crypto wallet settings (Zerion API)
+ZERION_API_BASE = "https://api.zerion.io/v1"
+ZERION_API_TIMEOUT = 30  # Timeout for Zerion API calls
+WALLET_SYNC_CACHE_HOURS = 1  # How long to cache wallet data before refresh
+
+# Supported blockchain mappings for Zerion
+SUPPORTED_CHAINS = {
+    'ethereum': 'ethereum',
+    'eth': 'ethereum',
+    'polygon': 'polygon',
+    'matic': 'polygon',
+    'arbitrum': 'arbitrum',
+    'optimism': 'optimism',
+    'base': 'base',
+    'solana': 'solana',
+    'sol': 'solana',
+    'avalanche': 'avalanche',
+    'bsc': 'binance-smart-chain',
+    'fantom': 'fantom',
+    'zksync': 'zksync-era',
+    'linea': 'linea',
+    'zora': 'zora',
+}

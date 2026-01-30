@@ -147,11 +147,37 @@ def init_database():
             )
         """)
 
+        # Crypto wallets
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wallets (
+                id TEXT PRIMARY KEY,
+                address TEXT NOT NULL,
+                blockchain TEXT NOT NULL,
+                label TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(address, blockchain)
+            )
+        """)
+
+        # Wallet snapshots (for historical tracking)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wallet_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id TEXT NOT NULL,
+                total_value_usd REAL NOT NULL,
+                positions_json TEXT,
+                snapshot_date TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (wallet_id) REFERENCES wallets(id)
+            )
+        """)
+
         # Indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(booking_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_amount ON transactions(amount)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_wallet_snapshots_date ON wallet_snapshots(wallet_id, snapshot_date)")
 
         conn.commit()
 
@@ -665,6 +691,158 @@ def cleanup_old_rates(days_to_keep: int = 90) -> int:
         """)
         conn.commit()
         return cursor.rowcount
+
+
+# ============================================================================
+# Crypto Wallet Functions
+# ============================================================================
+
+def add_wallet(address: str, blockchain: str, label: str = None) -> bool:
+    """Add a crypto wallet address"""
+    try:
+        # Create deterministic ID from address and blockchain
+        wallet_id = hashlib.md5(f"{address.lower()}|{blockchain.lower()}".encode()).hexdigest()
+
+        with get_db() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO wallets
+                (id, address, blockchain, label, created_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (wallet_id, address, blockchain.lower(), label))
+            conn.commit()
+        return True
+    except Exception:
+        return False
+
+
+def remove_wallet(address: str, blockchain: str = None) -> bool:
+    """Remove a wallet by address (and optionally blockchain)"""
+    try:
+        with get_db() as conn:
+            if blockchain:
+                # Remove specific wallet
+                wallet_id = hashlib.md5(f"{address.lower()}|{blockchain.lower()}".encode()).hexdigest()
+                conn.execute("DELETE FROM wallet_snapshots WHERE wallet_id = ?", (wallet_id,))
+                cursor = conn.execute("DELETE FROM wallets WHERE id = ?", (wallet_id,))
+            else:
+                # Remove all wallets with this address (any chain)
+                cursor = conn.execute("SELECT id FROM wallets WHERE LOWER(address) = LOWER(?)", (address,))
+                wallet_ids = [row['id'] for row in cursor.fetchall()]
+                for wid in wallet_ids:
+                    conn.execute("DELETE FROM wallet_snapshots WHERE wallet_id = ?", (wid,))
+                cursor = conn.execute("DELETE FROM wallets WHERE LOWER(address) = LOWER(?)", (address,))
+
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception:
+        return False
+
+
+def get_wallets() -> List[Dict]:
+    """Get all stored wallets"""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT * FROM wallets
+            ORDER BY created_at DESC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_wallet_by_id(wallet_id: str) -> Optional[Dict]:
+    """Get a wallet by its ID"""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT * FROM wallets WHERE id = ?", (wallet_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_wallet_by_address(address: str, blockchain: str = None) -> Optional[Dict]:
+    """Get a wallet by address (and optionally blockchain)"""
+    with get_db() as conn:
+        if blockchain:
+            wallet_id = hashlib.md5(f"{address.lower()}|{blockchain.lower()}".encode()).hexdigest()
+            cursor = conn.execute("SELECT * FROM wallets WHERE id = ?", (wallet_id,))
+        else:
+            cursor = conn.execute("SELECT * FROM wallets WHERE LOWER(address) = LOWER(?)", (address,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def save_wallet_snapshot(wallet_id: str, total_value_usd: float,
+                         positions_json: str = None, snapshot_date: str = None) -> bool:
+    """Save a wallet snapshot for historical tracking"""
+    try:
+        if snapshot_date is None:
+            snapshot_date = date.today().isoformat()
+
+        with get_db() as conn:
+            # Check if snapshot already exists for this date
+            cursor = conn.execute("""
+                SELECT id FROM wallet_snapshots
+                WHERE wallet_id = ? AND snapshot_date = ?
+            """, (wallet_id, snapshot_date))
+
+            if cursor.fetchone():
+                # Update existing snapshot
+                conn.execute("""
+                    UPDATE wallet_snapshots
+                    SET total_value_usd = ?, positions_json = ?, created_at = CURRENT_TIMESTAMP
+                    WHERE wallet_id = ? AND snapshot_date = ?
+                """, (total_value_usd, positions_json, wallet_id, snapshot_date))
+            else:
+                # Insert new snapshot
+                conn.execute("""
+                    INSERT INTO wallet_snapshots
+                    (wallet_id, total_value_usd, positions_json, snapshot_date)
+                    VALUES (?, ?, ?, ?)
+                """, (wallet_id, total_value_usd, positions_json, snapshot_date))
+
+            conn.commit()
+        return True
+    except Exception:
+        return False
+
+
+def get_latest_wallet_snapshot(wallet_id: str) -> Optional[Dict]:
+    """Get the most recent snapshot for a wallet"""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT * FROM wallet_snapshots
+            WHERE wallet_id = ?
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+        """, (wallet_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_wallet_snapshots_for_period(start_date: date, end_date: date) -> List[Dict]:
+    """Get all wallet snapshots within a date range"""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT ws.*, w.address, w.blockchain, w.label
+            FROM wallet_snapshots ws
+            JOIN wallets w ON ws.wallet_id = w.id
+            WHERE ws.snapshot_date >= ? AND ws.snapshot_date <= ?
+            ORDER BY ws.snapshot_date DESC, w.label
+        """, (start_date.isoformat(), end_date.isoformat()))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_total_crypto_value() -> float:
+    """Get total value across all wallets (from latest snapshots)"""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT SUM(ws.total_value_usd) as total
+            FROM wallets w
+            LEFT JOIN (
+                SELECT wallet_id, total_value_usd,
+                       ROW_NUMBER() OVER (PARTITION BY wallet_id ORDER BY snapshot_date DESC) as rn
+                FROM wallet_snapshots
+            ) ws ON w.id = ws.wallet_id AND ws.rn = 1
+        """)
+        row = cursor.fetchone()
+        return row['total'] if row and row['total'] else 0.0
 
 
 # Initialize database on import

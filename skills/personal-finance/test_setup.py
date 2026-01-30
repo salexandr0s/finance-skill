@@ -365,6 +365,105 @@ def test_currency():
         return False
 
 
+def test_crypto():
+    """Test crypto wallet module"""
+    print("\nTesting crypto wallet module...")
+
+    try:
+        # Test imports
+        from crypto import (
+            get_supported_chains, normalize_chain, format_crypto_value,
+            has_zerion_credentials, SUPPORTED_CHAINS
+        )
+        from db import (
+            add_wallet, get_wallets, get_wallet_by_address,
+            remove_wallet, save_wallet_snapshot, get_latest_wallet_snapshot,
+            get_total_crypto_value
+        )
+
+        # Test chain normalization
+        if normalize_chain('eth') != 'ethereum':
+            print("❌ Chain normalization failed for 'eth'")
+            return False
+        if normalize_chain('sol') != 'solana':
+            print("❌ Chain normalization failed for 'sol'")
+            return False
+        if normalize_chain('matic') != 'polygon':
+            print("❌ Chain normalization failed for 'matic'")
+            return False
+
+        # Test supported chains list
+        chains = get_supported_chains()
+        if 'ethereum' not in chains or 'solana' not in chains:
+            print("❌ Supported chains list incomplete")
+            return False
+
+        # Test wallet CRUD operations
+        test_address = "0xTestWallet123456789"
+        test_chain = "ethereum"
+        test_label = "Test Wallet"
+
+        # Add wallet
+        if not add_wallet(test_address, test_chain, test_label):
+            print("❌ Failed to add test wallet")
+            return False
+
+        # Get wallet
+        wallet = get_wallet_by_address(test_address, test_chain)
+        if not wallet:
+            print("❌ Failed to retrieve test wallet")
+            return False
+        if wallet['label'] != test_label:
+            print("❌ Wallet label mismatch")
+            return False
+
+        # Test snapshot
+        if not save_wallet_snapshot(wallet['id'], 1234.56, '[]'):
+            print("❌ Failed to save wallet snapshot")
+            return False
+
+        snapshot = get_latest_wallet_snapshot(wallet['id'])
+        if not snapshot or snapshot['total_value_usd'] != 1234.56:
+            print("❌ Snapshot retrieval failed")
+            return False
+
+        # Test total crypto value
+        total = get_total_crypto_value()
+        if total < 1234.56:
+            print(f"❌ Total crypto value incorrect: {total}")
+            return False
+
+        # Test format_crypto_value (USD case - no conversion needed)
+        formatted = format_crypto_value(1234.56, 'USD')
+        if '$1,234.56' not in formatted:
+            print(f"❌ Crypto value formatting failed: {formatted}")
+            return False
+
+        # Clean up - remove test wallet
+        if not remove_wallet(test_address, test_chain):
+            print("❌ Failed to remove test wallet")
+            return False
+
+        # Verify removal
+        wallet = get_wallet_by_address(test_address, test_chain)
+        if wallet:
+            print("❌ Test wallet not properly removed")
+            return False
+
+        print("✅ Crypto module working correctly")
+        return True
+
+    except ImportError as e:
+        print(f"⚠️ Crypto module not available: {e}")
+        return True  # Not a failure if module not installed
+
+    except Exception as e:
+        print(f"❌ Crypto test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main():
     """Run all tests"""
     print("🧪 Personal Finance Skill - Setup Test")
@@ -378,6 +477,7 @@ def main():
         test_rate_limiting,
         test_date_boundaries,
         test_currency,
+        test_crypto,
         test_charts,
         test_cli
     ]
