@@ -24,10 +24,10 @@ def test_imports():
         return False
         
     try:
-        import gocardless
-        print("✅ GoCardless module imported")
+        import enablebanking
+        print("✅ Enable Banking module imported")
     except Exception as e:
-        print(f"❌ GoCardless module failed: {e}")
+        print(f"❌ Enable Banking module failed: {e}")
         return False
         
     try:
@@ -492,8 +492,8 @@ def main():
     if passed == len(tests):
         print("🎉 All tests passed! Finance skill is ready to use.")
         print("\nNext steps:")
-        print("1. Set up GoCardless credentials:")
-        print("   python scripts/gocardless.py setup")
+        print("1. Set up Enable Banking credentials:")
+        print("   python scripts/enablebanking.py setup")
         print("2. Connect your bank:")
         print("   python scripts/finance.py setup")
         print("3. Sync transactions:")

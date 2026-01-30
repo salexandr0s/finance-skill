@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """
 GoCardless Bank Account Data API Client
-Handles authentication, rate limiting, and API calls
+
+DEPRECATED: This module is deprecated. Use enablebanking.py instead.
+
+GoCardless is no longer accepting new applications for their Bank Account Data API.
+The Enable Banking API (enablebanking.py) is the recommended replacement.
+
+This file is kept for backwards compatibility with existing installations.
 """
+
+import warnings
+warnings.warn(
+    "gocardless.py is deprecated. Use enablebanking.py instead. "
+    "GoCardless is no longer accepting new API applications.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 import os
 import json

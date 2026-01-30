@@ -18,7 +18,11 @@ def main():
     # Setup command
     setup_parser = subparsers.add_parser('setup', help='Start bank connection flow')
     setup_parser.add_argument('--country', default='CH', help='Country code (e.g., CH, DE, FR)')
-    
+
+    # Connect command (add additional bank accounts)
+    connect_parser = subparsers.add_parser('connect', help='Connect additional bank account')
+    connect_parser.add_argument('--country', default='CH', help='Country code (e.g., CH, DE, FR)')
+
     # Balance command
     balance_parser = subparsers.add_parser('balance', help='Show current balances')
     
@@ -86,6 +90,8 @@ def main():
     
     if args.command == 'setup':
         return cmd_setup(args.country)
+    elif args.command == 'connect':
+        return cmd_connect(args.country)
     elif args.command == 'balance':
         return cmd_balance()
     elif args.command == 'spending':
@@ -135,40 +141,41 @@ def cmd_setup(country: str) -> int:
     print("=" * 60)
     print()
     print("This wizard will help you:")
-    print("  1️⃣  Get your GoCardless API credentials (free)")
+    print("  1️⃣  Get your Enable Banking API credentials (free)")
     print("  2️⃣  Connect your bank account (read-only access)")
     print("  3️⃣  Set your preferred currency")
     print()
 
     # Step 1: Check if credentials already exist
     try:
-        from gocardless import GoCardlessClient, KEYCHAIN_AVAILABLE
+        from enablebanking import EnableBankingClient, KEYCHAIN_AVAILABLE
         from db import get_user_setting
 
         has_credentials = False
         try:
-            client = GoCardlessClient()
+            client = EnableBankingClient()
             # Try to make a simple API call to verify credentials
             client.list_institutions(country)
             has_credentials = True
-            print("✅ GoCardless credentials found and working!")
+            print("✅ Enable Banking credentials found and working!")
         except Exception:
             has_credentials = False
 
         if not has_credentials:
             print("─" * 60)
-            print("📋 STEP 1: Get GoCardless API Credentials")
+            print("📋 STEP 1: Get Enable Banking API Credentials")
             print("─" * 60)
             print()
-            print("GoCardless Bank Account Data provides FREE access to Open Banking.")
-            print("You need to create an account and get API credentials.")
+            print("Enable Banking provides FREE access to Open Banking across Europe.")
+            print("You need to create an account and register an application.")
             print()
-            print("👉 Go to: https://bankaccountdata.gocardless.com/signup")
+            print("👉 Go to: https://enablebanking.com/sign-in/")
             print()
             print("After signing up:")
-            print("  1. Go to 'User secrets' in the dashboard")
-            print("  2. Create a new secret")
-            print("  3. Copy your 'secret_id' and 'secret_key'")
+            print("  1. Go to 'API applications' in the Control Panel")
+            print("  2. Register a new application")
+            print("  3. Download the private key (.pem file)")
+            print("  4. Copy your Application ID")
             print()
 
             # Prompt for credentials
@@ -180,16 +187,26 @@ def cmd_setup(country: str) -> int:
                 return 0
 
             print()
-            secret_id = input("Enter your secret_id: ").strip()
-            secret_key = input("Enter your secret_key: ").strip()
+            application_id = input("Enter your Application ID: ").strip()
+            print("\nFor the private key, paste the path to your .pem file:")
+            key_path = input("Path to private key (.pem file): ").strip()
 
-            if not secret_id or not secret_key:
-                print("❌ Both secret_id and secret_key are required.")
+            if not application_id or not key_path:
+                print("❌ Both Application ID and private key are required.")
+                return 1
+
+            # Read private key from file
+            import os
+            if os.path.exists(key_path):
+                with open(key_path, 'r', encoding='utf-8') as f:
+                    private_key = f.read()
+            else:
+                print(f"❌ Private key file not found: {key_path}")
                 return 1
 
             # Save credentials
-            from gocardless import setup_credentials_programmatic
-            if not setup_credentials_programmatic(secret_id, secret_key):
+            from enablebanking import setup_credentials_programmatic
+            if not setup_credentials_programmatic(application_id, private_key):
                 print("❌ Failed to save credentials. Please try again.")
                 return 1
 
@@ -201,10 +218,9 @@ def cmd_setup(country: str) -> int:
         print("🏦 STEP 2: Connect Your Bank Account")
         print("─" * 60)
         print()
-        print(f"Searching for banks in {country}...")
 
-        from gocardless import setup_bank_connection
-        client = GoCardlessClient()
+        from enablebanking import setup_bank_connection, complete_authorization
+        client = EnableBankingClient()
         result = setup_bank_connection(client, country)
 
         if result['success']:
@@ -219,15 +235,20 @@ def cmd_setup(country: str) -> int:
             print()
 
             # Wait for user to complete authentication
-            input("Press Enter after you've completed bank authentication...")
+            print("After bank authentication, you'll be redirected to a URL.")
+            redirect_url = input("Paste the redirect URL here: ").strip()
             print()
 
-            # Check if accounts were linked
-            from gocardless import check_and_update_accounts
-            check_and_update_accounts()
+            # Complete authorization with the redirect URL
+            if redirect_url:
+                auth_result = complete_authorization(client, redirect_url)
+                if auth_result['success']:
+                    print(f"✅ Connected {len(auth_result.get('accounts', []))} account(s)!")
+                else:
+                    print(f"⚠️ Authorization issue: {auth_result.get('error', 'Unknown error')}")
         else:
             print(f"⚠️ Bank connection issue: {result.get('error', 'Unknown error')}")
-            print("You can try again later with '/finance setup'")
+            print("You can try again later with '/finance connect'")
 
         # Step 3: Set home currency
         print("─" * 60)
@@ -340,6 +361,7 @@ def cmd_setup(country: str) -> int:
         print("  /finance spending  - See spending summary")
         print("  /finance report    - Generate detailed reports")
         print("  /finance sync      - Refresh transaction data")
+        print("  /finance connect   - Add more bank accounts")
         print()
         print("💡 Tip: Run '/finance sync' to fetch your latest transactions!")
         return 0
@@ -353,6 +375,98 @@ def cmd_setup(country: str) -> int:
     except Exception as e:
         print(f"❌ Error during setup: {e}")
         return 1
+
+
+def cmd_connect(country: str) -> int:
+    """Connect an additional bank account"""
+    print("=" * 60)
+    print("🏦 Connect Bank Account")
+    print("=" * 60)
+    print()
+
+    try:
+        from enablebanking import (
+            EnableBankingClient, setup_bank_connection, complete_authorization
+        )
+
+        # Check if credentials exist
+        try:
+            client = EnableBankingClient()
+            # Test that credentials work
+            client.list_institutions(country)
+        except ValueError:
+            print("❌ Enable Banking credentials not found.")
+            print()
+            print("Please run '/finance setup' first to configure your credentials.")
+            return 1
+        except Exception as e:
+            print(f"❌ Could not verify credentials: {e}")
+            print()
+            print("Please run '/finance setup' to reconfigure your credentials.")
+            return 1
+
+        print(f"✅ Credentials verified for {country}")
+        print()
+
+        # Run bank connection flow
+        result = setup_bank_connection(client, country)
+
+        if not result['success']:
+            print(f"❌ {result.get('error', 'Bank connection failed')}")
+            return 1
+
+        print()
+        print("✅ Bank connection initiated!")
+        print()
+        print("👉 Complete authentication at:")
+        print(f"   {result['auth_url']}")
+        print()
+        print("After authenticating with your bank, you'll be redirected to a URL.")
+        print("Copy the entire URL from your browser's address bar.")
+        print()
+
+        redirect_url = input("Paste the redirect URL here: ").strip()
+
+        if not redirect_url:
+            print("❌ No URL provided. Please try again.")
+            return 1
+
+        print()
+
+        # Complete authorization
+        auth_result = complete_authorization(client, redirect_url)
+
+        if auth_result['success']:
+            accounts = auth_result.get('accounts', [])
+            print(f"✅ Successfully connected {len(accounts)} account(s)!")
+            print()
+
+            # Show connected accounts
+            if accounts:
+                print("Connected accounts:")
+                for acc in accounts:
+                    iban = acc.get('iban', 'N/A')
+                    name = acc.get('name', '')
+                    display = name if name else f"****{iban[-4:]}" if len(iban) >= 4 else 'Account'
+                    print(f"  • {display}")
+
+            print()
+            print("💡 Run '/finance sync' to fetch transactions from the new account.")
+            return 0
+        else:
+            print(f"❌ Authorization failed: {auth_result.get('error', 'Unknown error')}")
+            return 1
+
+    except ImportError as e:
+        print(f"❌ Required module not available: {e}")
+        return 1
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Connection cancelled.")
+        return 1
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
 
 def cmd_balance() -> int:
     """Show current balances"""
@@ -487,12 +601,12 @@ def cmd_report(report_type: str) -> int:
 def cmd_sync(force: bool = False) -> int:
     """Force transaction sync"""
     try:
-        from gocardless import GoCardlessClient
+        from enablebanking import EnableBankingClient
         from db import store_transactions, get_connected_accounts
-        
+
         print("🔄 Syncing transactions...")
-        
-        client = GoCardlessClient()
+
+        client = EnableBankingClient()
         accounts = get_connected_accounts()
         
         if not accounts:

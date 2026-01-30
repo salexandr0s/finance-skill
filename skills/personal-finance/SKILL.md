@@ -1,13 +1,13 @@
 ---
 name: personal-finance
-description: Personal finance tracking via GoCardless Open Banking. Syncs transactions, auto-categorizes spending, generates charts and reports.
-homepage: https://developer.gocardless.com/bank-account-data/
-metadata: 
+description: Personal finance tracking via Enable Banking Open Banking API. Syncs transactions, auto-categorizes spending, generates charts and reports.
+homepage: https://enablebanking.com/docs/
+metadata:
   clawdbot:
     emoji: 💰
     os: [darwin]
     requires:
-      python: ["requests", "matplotlib"]
+      python: ["requests", "matplotlib", "pyjwt"]
     commands:
       - /finance
 ---
@@ -18,7 +18,7 @@ Track your spending, analyze habits, and get automated insights from your Europe
 
 ## Features
 
-✅ **Bank Connection** — Connect 2,300+ European banks via GoCardless  
+✅ **Bank Connection** — Connect 2,500+ European banks via Enable Banking
 ✅ **Auto-Sync** — Fetch transactions automatically with rate limiting  
 ✅ **Smart Categorization** — Auto-categorize with Swiss merchant database  
 ✅ **Anomaly Detection** — Flag unusual spending (>2x category average)  
@@ -35,7 +35,7 @@ The easiest way to get started is with the interactive setup wizard:
 ```
 
 This guided wizard will:
-1. **Get API credentials** — Walk you through creating a free GoCardless account
+1. **Get API credentials** — Walk you through creating a free Enable Banking account
 2. **Connect your bank** — Help you authenticate with your bank (read-only access)
 3. **Set your currency** — Choose your home currency for consistent display
 
@@ -47,24 +47,26 @@ That's it! After setup, your transactions will sync automatically.
 
 If you prefer manual configuration:
 
-### 1. Get GoCardless Credentials
+### 1. Get Enable Banking Credentials
 
-1. Sign up at https://bankaccountdata.gocardless.com (free tier available)
-2. Go to https://bankaccountdata.gocardless.com/user-secrets/
-3. Create a new secret and note the `secret_id` and `secret_key`
+1. Sign up at https://enablebanking.com/sign-in/ (free tier available)
+2. Go to **API applications** in the Control Panel
+3. Register a new application
+4. Download the private key (.pem file)
+5. Copy your **Application ID**
 
 ### 2. Store Credentials
 
 ```bash
 # Interactive setup
-python ~/.config/clawdbot/skills/personal-finance/scripts/gocardless.py setup
+python ~/.config/clawdbot/skills/personal-finance/scripts/enablebanking.py setup
 
 # Or manual keychain storage (adjust path to your installation)
 python -c "
 import sys, os; sys.path.append(os.path.expanduser('~/.config/clawdbot'))
 from keychain import set_key
-set_key('gocardless_secret_id', 'your_secret_id_here')
-set_key('gocardless_secret_key', 'your_secret_key_here')
+set_key('enablebanking_application_id', 'your_application_id_here')
+set_key('enablebanking_private_key', open('path/to/your_key.pem').read())
 "
 ```
 
@@ -88,6 +90,7 @@ set_key('gocardless_secret_key', 'your_secret_key_here')
 | Command | Description | Example |
 |---------|-------------|---------|
 | `/finance setup` | Interactive onboarding wizard | `/finance setup` |
+| `/finance connect [--country]` | Connect additional bank account | `/finance connect --country DE` |
 | `/finance balance` | Show current account balances | `/finance balance` |
 | `/finance spending [period]` | Show spending summary | `/finance spending week` |
 | `/finance report [type]` | Generate detailed report with chart | `/finance report monthly` |
@@ -311,8 +314,8 @@ Full list: https://docs.google.com/spreadsheets/d/1EZ5n7QDGaRIot5M86dwqd5UFSGEDT
 # Force re-authentication
 /finance setup
 
-# Manual token refresh
-python ~/.config/clawdbot/skills/personal-finance/scripts/gocardless.py setup
+# Manual credential setup
+python ~/.config/clawdbot/skills/personal-finance/scripts/enablebanking.py setup
 ```
 
 **Rate Limiting:**
@@ -335,7 +338,7 @@ python ~/.config/clawdbot/skills/personal-finance/scripts/gocardless.py setup
 The skill consists of:
 
 - **finance.py** — Main CLI entry point with commands
-- **gocardless.py** — GoCardless API client with auth flow
+- **enablebanking.py** — Enable Banking API client with JWT auth flow
 - **crypto.py** — Zerion API client for crypto wallets
 - **db.py** — SQLite operations with secure storage
 - **categorize.py** — Rule-based transaction categorization
@@ -352,6 +355,7 @@ Charts use matplotlib with mobile-friendly settings (800px width, readable fonts
 # Required packages
 requests>=2.31.0    # API calls
 matplotlib>=3.8.0   # Chart generation
+pyjwt>=2.8.0        # JWT authentication for Enable Banking
 
 # Built-in
 sqlite3             # Database
@@ -360,10 +364,10 @@ datetime           # Date handling
 pathlib            # File operations
 ```
 
-Install with: `pip install requests matplotlib`
+Install with: `pip install requests matplotlib pyjwt`
 
 ---
 
-**GoCardless Bank Account Data** integration provides secure, read-only access to your financial data via regulated Open Banking APIs. No card details or payment capabilities — purely for tracking and analysis.
+**Enable Banking** integration provides secure, read-only access to your financial data via regulated Open Banking APIs across 29 European countries. No card details or payment capabilities — purely for tracking and analysis.
 
 **Legal:** This skill accesses financial data via your explicit consent through regulated PSD2 Open Banking protocols. Data processing occurs locally on your device.

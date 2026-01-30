@@ -21,7 +21,7 @@ SMALL_AMOUNT_THRESHOLD = 5  # CHF - amounts below this may be fees/subscriptions
 LARGE_AMOUNT_THRESHOLD = 1000  # CHF - amounts above this may be housing/salary
 
 # API settings
-API_TIMEOUT_SECONDS = 60  # Timeout for GoCardless API calls
+API_TIMEOUT_SECONDS = 60  # Timeout for Enable Banking API calls
 
 # Database settings
 DB_FILE_PERMISSIONS = 0o600  # Owner read/write only

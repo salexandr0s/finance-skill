@@ -4,7 +4,7 @@ Track your spending, analyze habits, and get automated insights from your bank a
 
 ## Features
 
-- **Bank Connection** — Connect 2,300+ European banks via GoCardless Open Banking
+- **Bank Connection** — Connect 2,500+ European banks via Enable Banking Open Banking API
 - **Crypto Wallets** — Track EVM (Ethereum, Polygon, etc.) and Solana wallets via Zerion
 - **Multi-Currency** — All amounts displayed in your preferred currency
 - **Smart Categorization** — Auto-categorize transactions with Swiss merchant database
@@ -16,14 +16,14 @@ Track your spending, analyze habits, and get automated insights from your bank a
 
 ```bash
 # Install dependencies
-pip install requests matplotlib
+pip install requests matplotlib pyjwt
 
 # Run the setup wizard
 python skills/personal-finance/scripts/finance.py setup
 ```
 
 The setup wizard will guide you through:
-1. Getting GoCardless API credentials
+1. Getting Enable Banking API credentials
 2. Connecting your bank account
 3. Setting your home currency
 4. Adding crypto wallets (optional)
@@ -32,16 +32,16 @@ The setup wizard will guide you through:
 
 This skill uses two external APIs. Both have free tiers.
 
-### GoCardless Bank Account Data (Required for banking)
+### Enable Banking (Required for banking)
 
-Provides access to 2,300+ European banks via Open Banking.
+Provides access to 2,500+ European banks across 29 countries via Open Banking.
 
 | | |
 |---|---|
-| **Sign up** | https://bankaccountdata.gocardless.com/signup |
-| **Get credentials** | Dashboard → User Secrets → Create new secret |
-| **Free tier** | Unlimited connections, rate limited |
-| **What you need** | `secret_id` and `secret_key` |
+| **Sign up** | https://enablebanking.com/sign-in/ |
+| **Get credentials** | Control Panel → API Applications → Register new app |
+| **Free tier** | Sandbox (auto-activated), Production (requires verification) |
+| **What you need** | `Application ID` and private key (.pem file) |
 
 ### Zerion API (Required for crypto wallets)
 
@@ -64,6 +64,7 @@ Provides portfolio data for EVM chains and Solana.
 | Command | Description |
 |---------|-------------|
 | `/finance setup` | Interactive setup wizard |
+| `/finance connect` | Connect additional bank account |
 | `/finance balance` | Show account balances |
 | `/finance spending [today/week/month]` | Spending summary |
 | `/finance report [daily/weekly/monthly]` | Generate report with chart |
@@ -84,7 +85,7 @@ skills/personal-finance/
 ├── SKILL.md              # Full documentation
 ├── scripts/
 │   ├── finance.py        # Main CLI entry point
-│   ├── gocardless.py     # GoCardless API client
+│   ├── enablebanking.py  # Enable Banking API client
 │   ├── crypto.py         # Zerion API client
 │   ├── currency.py       # Multi-currency conversion
 │   ├── db.py             # SQLite database
@@ -112,7 +113,7 @@ skills/personal-finance/
 | Transactions | `~/.config/clawdbot-finance/transactions.db` |
 | Charts | `~/.config/clawdbot-finance/charts/` |
 | Reports | `~/.config/clawdbot-finance/reports/` |
-| GoCardless credentials | macOS Keychain or `~/.config/gocardless_creds.json` |
+| Enable Banking credentials | macOS Keychain or `~/.config/enablebanking_creds.json` |
 | Zerion credentials | macOS Keychain or `~/.config/zerion_creds.json` |
 
 ## Testing

@@ -45,6 +45,7 @@ reports/
 # Credentials (NEVER commit these)
 *_creds.json
 *_token.json
+*.pem
 .env
 .env.local
 credentials.json

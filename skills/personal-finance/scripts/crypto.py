@@ -35,7 +35,7 @@ except ImportError:
         'fantom': 'fantom', 'zksync': 'zksync-era',
     }
 
-# Keychain support (same pattern as gocardless.py)
+# Keychain support (same pattern as enablebanking.py)
 try:
     import keyring
     KEYCHAIN_AVAILABLE = True

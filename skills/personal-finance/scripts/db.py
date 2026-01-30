@@ -101,7 +101,7 @@ def init_database():
             )
         """)
         
-        # Requisitions (bank connections)
+        # Requisitions (bank connections - legacy GoCardless)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS requisitions (
                 id TEXT PRIMARY KEY,
@@ -111,6 +111,17 @@ def init_database():
                 agreement_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 expires_at TEXT
+            )
+        """)
+
+        # Sessions (Enable Banking connections)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT PRIMARY KEY,
+                institution_name TEXT,
+                status TEXT DEFAULT 'active',
+                valid_until TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
@@ -186,10 +197,10 @@ def init_database():
         os.chmod(DB_PATH, DB_FILE_PERMISSIONS)
 
 def store_requisition(requisition_data: Dict, institution_data: Dict):
-    """Store requisition info"""
+    """Store requisition info (legacy GoCardless)"""
     with get_db() as conn:
         conn.execute("""
-            INSERT OR REPLACE INTO requisitions 
+            INSERT OR REPLACE INTO requisitions
             (id, institution_id, institution_name, status, agreement_id, expires_at)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
@@ -203,16 +214,98 @@ def store_requisition(requisition_data: Dict, institution_data: Dict):
         conn.commit()
 
 def get_pending_requisitions() -> List[Dict]:
-    """Get requisitions waiting for user to complete auth"""
+    """Get requisitions waiting for user to complete auth (legacy GoCardless)"""
     with get_db() as conn:
         cursor = conn.execute("""
-            SELECT * FROM requisitions 
-            WHERE status IN ('CR', 'GC') 
+            SELECT * FROM requisitions
+            WHERE status IN ('CR', 'GC')
             ORDER BY created_at DESC
         """)
         return [dict(row) for row in cursor.fetchall()]
 
-def store_accounts(requisition_id: str, account_id: str, details: Dict, institution_name: str):
+
+# =============================================================================
+# Enable Banking Session Functions
+# =============================================================================
+
+def store_session(session_data: Dict) -> None:
+    """
+    Store Enable Banking session info.
+
+    Args:
+        session_data: Session response from Enable Banking API containing
+                     session_id, accounts, and optional validity info
+    """
+    with get_db() as conn:
+        session_id = session_data.get('session_id')
+        if not session_id:
+            return
+
+        # Extract validity if present
+        valid_until = session_data.get('access', {}).get('valid_until')
+
+        conn.execute("""
+            INSERT OR REPLACE INTO sessions
+            (session_id, status, valid_until)
+            VALUES (?, 'active', ?)
+        """, (session_id, valid_until))
+        conn.commit()
+
+
+def get_active_sessions() -> List[Dict]:
+    """
+    Get all active Enable Banking sessions.
+
+    Returns:
+        List of session dictionaries that are still valid
+    """
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT * FROM sessions
+            WHERE status = 'active'
+            AND (valid_until IS NULL OR valid_until > datetime('now'))
+            ORDER BY created_at DESC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def store_accounts(session_id: str, account_data: Dict) -> None:
+    """
+    Store account info from Enable Banking session.
+
+    Args:
+        session_id: Enable Banking session ID
+        account_data: Account object from Enable Banking API
+    """
+    with get_db() as conn:
+        # Handle Enable Banking account format
+        account_uid = account_data.get('uid') or account_data.get('id')
+        if not account_uid:
+            return
+
+        # Extract account details - Enable Banking format
+        iban = account_data.get('iban', '')
+        currency = account_data.get('currency', 'EUR')
+        name = account_data.get('name', '')
+        institution_name = account_data.get('institution_name', '')
+
+        conn.execute("""
+            INSERT OR REPLACE INTO accounts
+            (id, requisition_id, institution_id, institution_name, iban, name, currency, access_expires_at)
+            VALUES (?, ?, '', ?, ?, ?, ?, ?)
+        """, (
+            account_uid,
+            session_id,  # Use session_id in requisition_id field for compatibility
+            institution_name,
+            iban,
+            name,
+            currency,
+            datetime.now() + timedelta(days=90)  # 90 day default
+        ))
+        conn.commit()
+
+
+def store_accounts_legacy(requisition_id: str, account_id: str, details: Dict, institution_name: str):
     """Store account info"""
     with get_db() as conn:
         iban = details.get('account', {}).get('iban')
