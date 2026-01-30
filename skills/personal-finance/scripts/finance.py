@@ -78,6 +78,37 @@ def main():
     reminder_parser.add_argument('action', nargs='?', choices=['status', 'enable', 'disable', 'set-day'], default='status')
     reminder_parser.add_argument('--day', type=int, help='Day of month for reminder (1-28)')
 
+    # Subscription commands
+    sub_parser = subparsers.add_parser('subscriptions', help='Subscription tracking')
+    sub_sub = sub_parser.add_subparsers(dest='sub_action', help='Subscription actions')
+
+    sub_list = sub_sub.add_parser('list', help='List all subscriptions')
+    sub_list.add_argument('--all', action='store_true', help='Include cancelled subscriptions')
+
+    sub_add = sub_sub.add_parser('add', help='Add a subscription')
+    sub_add.add_argument('name', help='Subscription name (e.g., Netflix, Spotify)')
+    sub_add.add_argument('amount', type=float, help='Amount per billing cycle')
+    sub_add.add_argument('--cycle', '-c', default='monthly',
+                        choices=['weekly', 'monthly', 'quarterly', 'yearly'],
+                        help='Billing cycle (default: monthly)')
+    sub_add.add_argument('--currency', default='EUR', help='Currency (default: EUR)')
+    sub_add.add_argument('--category', help='Category (auto-detected if not specified)')
+    sub_add.add_argument('--next-billing', help='Next billing date (YYYY-MM-DD)')
+    sub_add.add_argument('--website', help='Service website URL')
+    sub_add.add_argument('--notes', help='Additional notes')
+
+    sub_remove = sub_sub.add_parser('remove', help='Remove a subscription')
+    sub_remove.add_argument('id', type=int, help='Subscription ID')
+
+    sub_pause = sub_sub.add_parser('pause', help='Pause a subscription')
+    sub_pause.add_argument('id', type=int, help='Subscription ID')
+
+    sub_resume = sub_sub.add_parser('resume', help='Resume a paused subscription')
+    sub_resume.add_argument('id', type=int, help='Subscription ID')
+
+    sub_detect = sub_sub.add_parser('detect', help='Detect subscriptions from transactions')
+    sub_detect.add_argument('--add', action='store_true', help='Auto-add detected subscriptions')
+
     # Wallet commands
     wallet_parser = subparsers.add_parser('wallet', help='Crypto wallet operations')
     wallet_sub = wallet_parser.add_subparsers(dest='wallet_action', help='Wallet actions')
@@ -131,6 +162,25 @@ def main():
         return cmd_currency(args.code)
     elif args.command == 'reminder':
         return cmd_reminder(args.action, args.day)
+    elif args.command == 'subscriptions':
+        if args.sub_action == 'list' or args.sub_action is None:
+            return cmd_subscriptions_list(getattr(args, 'all', False))
+        elif args.sub_action == 'add':
+            return cmd_subscriptions_add(
+                args.name, args.amount, args.cycle, args.currency,
+                args.category, args.next_billing, args.website, args.notes
+            )
+        elif args.sub_action == 'remove':
+            return cmd_subscriptions_remove(args.id)
+        elif args.sub_action == 'pause':
+            return cmd_subscriptions_pause(args.id)
+        elif args.sub_action == 'resume':
+            return cmd_subscriptions_resume(args.id)
+        elif args.sub_action == 'detect':
+            return cmd_subscriptions_detect(getattr(args, 'add', False))
+        else:
+            sub_parser.print_help()
+            return 1
     elif args.command == 'wallet':
         if args.wallet_action == 'add':
             return cmd_wallet_add(args.address, args.chain, args.label)
@@ -1085,6 +1135,130 @@ def cmd_reminder(action: str, day: int = None) -> int:
 
     except Exception as e:
         print(f"Error: {e}")
+        return 1
+
+
+# ============================================================================
+# Subscription Commands
+# ============================================================================
+
+def cmd_subscriptions_list(include_all: bool = False) -> int:
+    """List all subscriptions"""
+    try:
+        from subscriptions import get_subscription_summary, format_subscription_report
+        from db import get_subscriptions
+
+        subs = get_subscriptions(include_cancelled=include_all)
+
+        if not subs:
+            print("No subscriptions tracked yet.")
+            print()
+            print("Add subscriptions manually:")
+            print("  /finance subscriptions add Netflix 15.99 --cycle monthly")
+            print("  /finance subscriptions add Spotify 9.99")
+            print()
+            print("Or detect from your transactions:")
+            print("  /finance subscriptions detect")
+            return 0
+
+        summary = get_subscription_summary()
+        lines = format_subscription_report(summary)
+
+        for line in lines:
+            print(line)
+
+        # Show IDs for management
+        print()
+        print("Subscription IDs (for remove/pause/resume):")
+        for sub in subs:
+            status_tag = f" [{sub['status']}]" if sub['status'] != 'active' else ""
+            print(f"  #{sub['id']}: {sub['name']}{status_tag}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error listing subscriptions: {e}")
+        return 1
+
+
+def cmd_subscriptions_add(
+    name: str,
+    amount: float,
+    cycle: str = 'monthly',
+    currency: str = 'EUR',
+    category: str = None,
+    next_billing: str = None,
+    website: str = None,
+    notes: str = None
+) -> int:
+    """Add a new subscription"""
+    try:
+        from subscriptions import cmd_add_subscription
+
+        success = cmd_add_subscription(
+            name=name,
+            amount=amount,
+            cycle=cycle,
+            currency=currency,
+            category=category,
+            next_billing=next_billing,
+            website=website,
+            notes=notes
+        )
+
+        if success:
+            print()
+            print("View all subscriptions: /finance subscriptions list")
+            return 0
+        return 1
+
+    except Exception as e:
+        print(f"Error adding subscription: {e}")
+        return 1
+
+
+def cmd_subscriptions_remove(subscription_id: int) -> int:
+    """Remove a subscription"""
+    try:
+        from subscriptions import cmd_remove_subscription
+        return 0 if cmd_remove_subscription(subscription_id) else 1
+
+    except Exception as e:
+        print(f"Error removing subscription: {e}")
+        return 1
+
+
+def cmd_subscriptions_pause(subscription_id: int) -> int:
+    """Pause a subscription"""
+    try:
+        from subscriptions import cmd_pause_subscription
+        return 0 if cmd_pause_subscription(subscription_id) else 1
+
+    except Exception as e:
+        print(f"Error pausing subscription: {e}")
+        return 1
+
+
+def cmd_subscriptions_resume(subscription_id: int) -> int:
+    """Resume a paused subscription"""
+    try:
+        from subscriptions import cmd_resume_subscription
+        return 0 if cmd_resume_subscription(subscription_id) else 1
+
+    except Exception as e:
+        print(f"Error resuming subscription: {e}")
+        return 1
+
+
+def cmd_subscriptions_detect(auto_add: bool = False) -> int:
+    """Detect subscriptions from transactions"""
+    try:
+        from subscriptions import cmd_detect_subscriptions
+        cmd_detect_subscriptions(auto_add)
+        return 0
+
+    except Exception as e:
+        print(f"Error detecting subscriptions: {e}")
         return 1
 
 

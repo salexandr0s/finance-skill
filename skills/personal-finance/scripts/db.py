@@ -184,12 +184,36 @@ def init_database():
             )
         """)
 
+        # Subscriptions (recurring payments)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'EUR',
+                billing_cycle TEXT NOT NULL DEFAULT 'monthly'
+                    CHECK (billing_cycle IN ('weekly', 'monthly', 'quarterly', 'yearly')),
+                next_billing_date TEXT,
+                last_billing_date TEXT,
+                category TEXT DEFAULT 'subscriptions',
+                status TEXT NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active', 'paused', 'cancelled')),
+                merchant_pattern TEXT,
+                notes TEXT,
+                website TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(booking_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_amount ON transactions(amount)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_wallet_snapshots_date ON wallet_snapshots(wallet_id, snapshot_date)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing ON subscriptions(next_billing_date)")
 
         conn.commit()
 
@@ -1060,6 +1084,222 @@ def get_transactions_for_period(account_id: str, start_date: date, end_date: dat
             AND booking_date <= ?
             ORDER BY booking_date DESC
         """, (account_id, start_date.isoformat(), end_date.isoformat()))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# Subscription Functions
+# ============================================================================
+
+def add_subscription(
+    name: str,
+    amount: float,
+    currency: str = 'EUR',
+    billing_cycle: str = 'monthly',
+    category: str = 'subscriptions',
+    next_billing_date: str = None,
+    merchant_pattern: str = None,
+    notes: str = None,
+    website: str = None
+) -> int:
+    """
+    Add a new subscription.
+
+    Returns:
+        Subscription ID if successful, -1 on error
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.execute("""
+                INSERT INTO subscriptions
+                (name, amount, currency, billing_cycle, category,
+                 next_billing_date, merchant_pattern, notes, website)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, amount, currency, billing_cycle, category,
+                  next_billing_date, merchant_pattern, notes, website))
+            conn.commit()
+            return cursor.lastrowid
+    except Exception:
+        return -1
+
+
+def update_subscription(
+    subscription_id: int,
+    **kwargs
+) -> bool:
+    """
+    Update a subscription's fields.
+
+    Args:
+        subscription_id: ID of subscription to update
+        **kwargs: Fields to update (name, amount, currency, billing_cycle,
+                  category, next_billing_date, status, notes, website)
+
+    Returns:
+        True if successful
+    """
+    allowed_fields = {'name', 'amount', 'currency', 'billing_cycle', 'category',
+                      'next_billing_date', 'last_billing_date', 'status',
+                      'merchant_pattern', 'notes', 'website'}
+
+    updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+    if not updates:
+        return False
+
+    updates['updated_at'] = datetime.now().isoformat()
+
+    set_clause = ', '.join(f"{k} = ?" for k in updates.keys())
+    values = list(updates.values()) + [subscription_id]
+
+    try:
+        with get_db() as conn:
+            cursor = conn.execute(
+                f"UPDATE subscriptions SET {set_clause} WHERE id = ?",
+                values
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception:
+        return False
+
+
+def delete_subscription(subscription_id: int) -> bool:
+    """Delete a subscription."""
+    try:
+        with get_db() as conn:
+            cursor = conn.execute(
+                "DELETE FROM subscriptions WHERE id = ?",
+                (subscription_id,)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception:
+        return False
+
+
+def get_subscriptions(status: str = None, include_cancelled: bool = False) -> List[Dict]:
+    """
+    Get all subscriptions.
+
+    Args:
+        status: Filter by status (active, paused, cancelled)
+        include_cancelled: Include cancelled subscriptions
+
+    Returns:
+        List of subscription dictionaries
+    """
+    with get_db() as conn:
+        if status:
+            cursor = conn.execute(
+                "SELECT * FROM subscriptions WHERE status = ? ORDER BY amount DESC",
+                (status,)
+            )
+        elif include_cancelled:
+            cursor = conn.execute(
+                "SELECT * FROM subscriptions ORDER BY status, amount DESC"
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT * FROM subscriptions WHERE status != 'cancelled' ORDER BY amount DESC"
+            )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_subscription_by_id(subscription_id: int) -> Optional[Dict]:
+    """Get a single subscription by ID."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM subscriptions WHERE id = ?",
+            (subscription_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_subscription_by_merchant(merchant_pattern: str) -> Optional[Dict]:
+    """Get subscription by merchant pattern (for auto-detection linking)."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM subscriptions WHERE merchant_pattern = ?",
+            (merchant_pattern,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_subscription_totals() -> Dict:
+    """
+    Get subscription spending totals.
+
+    Returns:
+        Dictionary with monthly_total, yearly_total, count, by_category
+    """
+    with get_db() as conn:
+        # Get active subscriptions
+        cursor = conn.execute("""
+            SELECT * FROM subscriptions
+            WHERE status = 'active'
+        """)
+        subscriptions = [dict(row) for row in cursor.fetchall()]
+
+    if not subscriptions:
+        return {
+            'monthly_total': 0.0,
+            'yearly_total': 0.0,
+            'count': 0,
+            'by_category': {},
+            'currency': 'EUR'
+        }
+
+    monthly_total = 0.0
+    by_category = {}
+
+    for sub in subscriptions:
+        # Convert to monthly amount
+        amount = sub['amount']
+        cycle = sub['billing_cycle']
+
+        if cycle == 'yearly':
+            monthly_amount = amount / 12
+        elif cycle == 'quarterly':
+            monthly_amount = amount / 3
+        elif cycle == 'weekly':
+            monthly_amount = amount * 4.33
+        else:  # monthly
+            monthly_amount = amount
+
+        monthly_total += monthly_amount
+
+        # Group by category
+        cat = sub.get('category', 'other')
+        if cat not in by_category:
+            by_category[cat] = []
+        by_category[cat].append(sub)
+
+    return {
+        'monthly_total': round(monthly_total, 2),
+        'yearly_total': round(monthly_total * 12, 2),
+        'count': len(subscriptions),
+        'subscriptions': subscriptions,
+        'by_category': by_category,
+        'currency': subscriptions[0]['currency'] if subscriptions else 'EUR'
+    }
+
+
+def get_upcoming_renewals(days: int = 7) -> List[Dict]:
+    """Get subscriptions renewing in the next N days."""
+    cutoff = (date.today() + timedelta(days=days)).isoformat()
+    today = date.today().isoformat()
+
+    with get_db() as conn:
+        cursor = conn.execute("""
+            SELECT * FROM subscriptions
+            WHERE status = 'active'
+            AND next_billing_date IS NOT NULL
+            AND next_billing_date >= ?
+            AND next_billing_date <= ?
+            ORDER BY next_billing_date
+        """, (today, cutoff))
         return [dict(row) for row in cursor.fetchall()]
 
 

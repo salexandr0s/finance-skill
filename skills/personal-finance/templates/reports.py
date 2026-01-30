@@ -20,6 +20,13 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import database modules: {e}")
 
+# Subscription tracking
+try:
+    from subscriptions import get_subscription_summary, format_subscription_report
+    SUBSCRIPTIONS_AVAILABLE = True
+except ImportError:
+    SUBSCRIPTIONS_AVAILABLE = False
+
 # Currency support (optional - gracefully degrades if not available)
 try:
     from currency import (
@@ -426,6 +433,11 @@ def generate_monthly_report(target_date: date = None) -> Optional[Report]:
         else:
             text_lines.append("• No significant patterns detected this month")
 
+        # Add subscriptions section
+        subscription_lines = get_subscriptions_section()
+        if subscription_lines:
+            text_lines.extend(subscription_lines)
+
         # Add crypto holdings section
         crypto_lines, crypto_usd, crypto_home = get_crypto_section()
         if crypto_lines:
@@ -487,6 +499,29 @@ def get_category_emoji(category: str) -> str:
         'other': '📦'
     }
     return emojis.get(category.lower(), '📦')
+
+
+def get_subscriptions_section() -> List[str]:
+    """
+    Generate subscriptions section for reports.
+
+    Returns:
+        List of formatted text lines for subscription summary
+    """
+    if not SUBSCRIPTIONS_AVAILABLE:
+        return []
+
+    try:
+        summary = get_subscription_summary()
+
+        if not summary.get('subscriptions'):
+            return []
+
+        return format_subscription_report(summary)
+
+    except Exception as e:
+        print(f"Warning: Could not get subscription data: {e}")
+        return []
 
 
 def get_crypto_section() -> tuple:
