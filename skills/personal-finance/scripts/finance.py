@@ -479,55 +479,63 @@ def cmd_import(file_path: str = None, account: str = None,
 def cmd_list_banks() -> int:
     """List supported bank formats"""
     try:
-        from csv_import import get_supported_banks
-
-        banks = get_supported_banks()
+        from csv_import import BANK_FORMATS
 
         print("Supported Bank Formats")
-        print("=" * 50)
+        print("=" * 60)
         print()
         print("Format is auto-detected in most cases.")
         print("Use --bank <key> to force a specific format.")
         print()
 
         # Group by country
-        swiss = [b for b in banks if 'ch' in b['key'] or b['key'] in ['ubs', 'credit_suisse', 'postfinance']]
-        german = [b for b in banks if b['key'] in ['deutsche_bank', 'sparkasse', 'commerzbank', 'ing_diba']]
-        french = [b for b in banks if b['key'] in ['bnp_paribas', 'societe_generale', 'credit_agricole']]
-        uk = [b for b in banks if b['key'] in ['barclays', 'hsbc', 'lloyds']]
-        dutch = [b for b in banks if b['key'] in ['ing_nl', 'rabobank', 'abn_amro']]
-        austrian = [b for b in banks if b['key'] in ['erste_bank']]
+        country_names = {
+            'CH': 'Switzerland',
+            'DE': 'Germany',
+            'FR': 'France',
+            'GB': 'United Kingdom',
+            'NL': 'Netherlands',
+            'BE': 'Belgium',
+            'AT': 'Austria',
+            'ES': 'Spain',
+            'IT': 'Italy',
+            'PT': 'Portugal',
+            'IE': 'Ireland',
+            'FI': 'Finland',
+            'DK': 'Denmark',
+            'SE': 'Sweden',
+            'NO': 'Norway',
+            'PL': 'Poland',
+            'EU': 'Pan-European (Neobanks)',
+        }
 
-        if swiss:
-            print("Switzerland:")
-            for b in swiss:
-                print(f"  {b['key']:<20} {b['name']}")
+        # Group banks by country
+        by_country = {}
+        for key, config in BANK_FORMATS.items():
+            if key == 'generic':
+                continue
+            country = config.get('country', 'XX')
+            if country not in by_country:
+                by_country[country] = []
+            by_country[country].append({'key': key, 'name': config['name']})
 
-        if german:
-            print("\nGermany:")
-            for b in german:
-                print(f"  {b['key']:<20} {b['name']}")
+        # Print in order
+        country_order = ['CH', 'DE', 'FR', 'GB', 'NL', 'BE', 'AT', 'ES', 'IT', 'PT', 'IE', 'FI', 'DK', 'SE', 'NO', 'PL', 'EU']
 
-        if french:
-            print("\nFrance:")
-            for b in french:
-                print(f"  {b['key']:<20} {b['name']}")
+        total_banks = 0
+        for country_code in country_order:
+            if country_code not in by_country:
+                continue
+            banks = by_country[country_code]
+            country_name = country_names.get(country_code, country_code)
+            print(f"{country_name} ({len(banks)} banks):")
+            for b in sorted(banks, key=lambda x: x['name']):
+                print(f"  {b['key']:<22} {b['name']}")
+            print()
+            total_banks += len(banks)
 
-        if uk:
-            print("\nUnited Kingdom:")
-            for b in uk:
-                print(f"  {b['key']:<20} {b['name']}")
-
-        if dutch:
-            print("\nNetherlands:")
-            for b in dutch:
-                print(f"  {b['key']:<20} {b['name']}")
-
-        if austrian:
-            print("\nAustria:")
-            for b in austrian:
-                print(f"  {b['key']:<20} {b['name']}")
-
+        print("-" * 60)
+        print(f"Total: {total_banks} bank formats supported")
         print()
         print("Don't see your bank? Try anyway - 'generic' format")
         print("handles most standard CSV exports.")

@@ -20,14 +20,26 @@ CSV import is:
 
 ## Supported Banks
 
-Format is auto-detected for 20+ European banks:
+Format is auto-detected for **84 European banks** across 17 countries:
 
-**Switzerland:** UBS, Credit Suisse, PostFinance, Raiffeisen
-**Germany:** Deutsche Bank, Sparkasse, Commerzbank, ING DiBa
-**France:** BNP Paribas, Societe Generale, Credit Agricole
-**UK:** Barclays, HSBC, Lloyds
-**Netherlands:** ING, Rabobank, ABN AMRO
-**Austria:** Erste Bank
+| Country | Banks |
+|---------|-------|
+| Switzerland | UBS, Credit Suisse, PostFinance, Raiffeisen, ZKB, BCV, BCGE, Migros Bank, Cler |
+| Germany | Deutsche Bank, Sparkasse, Commerzbank, ING, DKB, N26, comdirect, Postbank, HypoVereinsbank, Volksbank, Targobank, Tomorrow |
+| France | BNP Paribas, Société Générale, Crédit Agricole, Crédit Mutuel, La Banque Postale, LCL, Boursorama, Fortuneo, Caisse d'Épargne |
+| UK | Barclays, HSBC, Lloyds, NatWest, RBS, Santander, Halifax, Monzo, Starling, Revolut, Nationwide |
+| Netherlands | ING, Rabobank, ABN AMRO, SNS Bank, Triodos, bunq |
+| Belgium | KBC, Belfius, ING, BNP Fortis, Argenta |
+| Austria | Erste Bank, Raiffeisen, Bank Austria, BAWAG |
+| Spain | Santander, BBVA, CaixaBank, Sabadell |
+| Italy | Intesa Sanpaolo, UniCredit, BNL, Fineco |
+| Portugal | CGD, Millennium BCP, Novo Banco |
+| Ireland | AIB, Bank of Ireland, PTSB |
+| Nordic | Nordea, OP Bank, Danske Bank, SEB, Swedbank, Handelsbanken, DNB |
+| Poland | PKO BP, mBank, ING |
+| Neobanks | Revolut, N26, Wise, Vivid |
+
+Run `/finance import --list-banks` for the full list.
 
 Don't see your bank? The generic format handles most standard CSV exports.
 

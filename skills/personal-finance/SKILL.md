@@ -59,25 +59,29 @@ After setup:
 
 ## Supported Banks
 
-Format is auto-detected from CSV headers. Supported banks include:
+Format is auto-detected from CSV headers. **84 banks** supported across 17 European countries:
 
-**Switzerland**
-- UBS, Credit Suisse, PostFinance, Raiffeisen
+| Country | Banks |
+|---------|-------|
+| **Switzerland** (9) | UBS, Credit Suisse, PostFinance, Raiffeisen, ZKB, BCV, BCGE, Migros Bank, Bank Cler |
+| **Germany** (12) | Deutsche Bank, Sparkasse, Commerzbank, ING, DKB, N26, comdirect, Postbank, HypoVereinsbank, Volksbank, Targobank, Tomorrow |
+| **France** (9) | BNP Paribas, Société Générale, Crédit Agricole, Crédit Mutuel, La Banque Postale, LCL, Boursorama, Fortuneo, Caisse d'Épargne |
+| **UK** (11) | Barclays, HSBC, Lloyds, NatWest, RBS, Santander, Halifax, Monzo, Starling, Revolut, Nationwide |
+| **Netherlands** (6) | ING, Rabobank, ABN AMRO, SNS Bank, Triodos, bunq |
+| **Belgium** (5) | KBC, Belfius, ING, BNP Fortis, Argenta |
+| **Austria** (4) | Erste Bank, Raiffeisen, Bank Austria, BAWAG |
+| **Spain** (4) | Santander, BBVA, CaixaBank, Sabadell |
+| **Italy** (4) | Intesa Sanpaolo, UniCredit, BNL, FinecoBank |
+| **Portugal** (3) | CGD, Millennium BCP, Novo Banco |
+| **Ireland** (3) | AIB, Bank of Ireland, Permanent TSB |
+| **Finland** (2) | Nordea, OP Bank |
+| **Denmark** (1) | Danske Bank |
+| **Sweden** (3) | SEB, Swedbank, Handelsbanken |
+| **Norway** (1) | DNB |
+| **Poland** (3) | PKO BP, mBank, ING |
+| **Neobanks** (4) | Revolut, N26, Wise, Vivid Money |
 
-**Germany**
-- Deutsche Bank, Sparkasse, Commerzbank, ING DiBa
-
-**France**
-- BNP Paribas, Societe Generale, Credit Agricole
-
-**United Kingdom**
-- Barclays, HSBC, Lloyds
-
-**Netherlands**
-- ING, Rabobank, ABN AMRO
-
-**Austria**
-- Erste Bank
+Run `/finance import --list-banks` for the complete list with format keys.
 
 Don't see your bank? Try anyway - the `generic` format handles most standard CSV exports with columns like Date, Amount, Description.
 
