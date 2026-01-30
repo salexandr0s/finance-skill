@@ -163,7 +163,11 @@ Ethereum, Solana, Polygon, Arbitrum, Optimism, Base, Avalanche, BSC, Fantom, zkS
 
 ### Setup
 
-1. Get a free Zerion API key at https://developers.zerion.io
+1. Get a Zerion API key at https://developers.zerion.io
+   - **Demo key** (default): 300 requests/day - good for testing
+   - **Developer key** (free): 2,000 requests/day - recommended for personal use
+   - Sign up and request a Developer key for the higher limit
+
 2. Add wallets during `/finance setup` or anytime with:
 
 ```bash
