@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from db import (
     get_db, get_subscriptions, get_subscription_totals,
     add_subscription, update_subscription, delete_subscription,
-    get_subscription_by_merchant, get_upcoming_renewals
+    get_subscription_by_merchant, get_subscription_by_id, get_upcoming_renewals
 )
 
 # Known subscription services (merchant patterns -> friendly name, category)
@@ -446,6 +446,17 @@ def cmd_add_subscription(
     notes: str = None
 ) -> bool:
     """Add a new subscription."""
+    # Validate amount
+    if amount <= 0:
+        print(f"Error: Amount must be positive (got {amount})")
+        return False
+
+    # Validate billing cycle
+    valid_cycles = {'weekly', 'monthly', 'quarterly', 'yearly'}
+    if cycle not in valid_cycles:
+        print(f"Error: Invalid billing cycle '{cycle}'. Use: {', '.join(valid_cycles)}")
+        return False
+
     # Auto-detect category from name
     if not category:
         name_lower = name.lower()
@@ -486,8 +497,6 @@ def cmd_add_subscription(
 
 def cmd_remove_subscription(subscription_id: int) -> bool:
     """Remove a subscription."""
-    from db import get_subscription_by_id
-
     sub = get_subscription_by_id(subscription_id)
     if not sub:
         print(f"Subscription #{subscription_id} not found")
@@ -503,8 +512,6 @@ def cmd_remove_subscription(subscription_id: int) -> bool:
 
 def cmd_pause_subscription(subscription_id: int) -> bool:
     """Pause a subscription."""
-    from db import get_subscription_by_id
-
     sub = get_subscription_by_id(subscription_id)
     if not sub:
         print(f"Subscription #{subscription_id} not found")
@@ -518,8 +525,6 @@ def cmd_pause_subscription(subscription_id: int) -> bool:
 
 def cmd_resume_subscription(subscription_id: int) -> bool:
     """Resume a paused subscription."""
-    from db import get_subscription_by_id
-
     sub = get_subscription_by_id(subscription_id)
     if not sub:
         print(f"Subscription #{subscription_id} not found")

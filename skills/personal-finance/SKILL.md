@@ -33,6 +33,7 @@ CSV import is:
 - **Deduplication** - Import same CSV twice without duplicates
 - **Monthly Reminders** - Get reminded to import new statements
 - **Smart Categorization** - Auto-categorize with merchant patterns
+- **Subscription Tracking** - Track recurring payments with totals
 - **Anomaly Detection** - Flag unusual spending (>2x average)
 - **Visual Reports** - Charts for spending breakdown
 - **Budget Tracking** - Set limits and monitor progress
@@ -132,6 +133,31 @@ Report types: `daily`, `weekly`, `monthly`
 | `/finance reminder enable` | Enable monthly reminders |
 | `/finance reminder disable` | Disable reminders |
 | `/finance reminder set-day --day <1-28>` | Set reminder day |
+
+### Subscriptions
+
+Track recurring payments like Netflix, Spotify, Claude, etc.
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/finance subscriptions list` | View all subscriptions with totals | `/finance subscriptions list` |
+| `/finance subscriptions add <name> <amount>` | Add a subscription | `/finance subscriptions add Netflix 15.99` |
+| `/finance subscriptions add ... --cycle <cycle>` | Set billing cycle | `/finance subscriptions add Spotify 9.99 --cycle monthly` |
+| `/finance subscriptions add ... --currency <code>` | Set currency | `/finance subscriptions add Claude 20 --currency USD` |
+| `/finance subscriptions remove <id>` | Remove a subscription | `/finance subscriptions remove 3` |
+| `/finance subscriptions pause <id>` | Pause tracking | `/finance subscriptions pause 2` |
+| `/finance subscriptions resume <id>` | Resume tracking | `/finance subscriptions resume 2` |
+| `/finance subscriptions detect` | Auto-detect from transactions | `/finance subscriptions detect` |
+| `/finance subscriptions detect --add` | Auto-add detected subscriptions | `/finance subscriptions detect --add` |
+
+Billing cycles: `weekly`, `monthly`, `quarterly`, `yearly`
+
+Categories are auto-detected from subscription name:
+- **Streaming**: Netflix, Spotify, Disney+, YouTube, etc.
+- **AI & Productivity**: Claude, ChatGPT, GitHub, Notion, etc.
+- **Gaming**: PlayStation, Xbox, Nintendo, etc.
+- **News**: NYT, Economist, Bloomberg, etc.
+- **Fitness**: Strava, Headspace, Peloton, etc.
 
 ### Crypto Wallets
 

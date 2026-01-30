@@ -81,6 +81,19 @@ Don't see your bank? The generic format handles most standard CSV exports.
 | `/finance reminder disable` | Disable reminders |
 | `/finance reminder set-day --day <1-28>` | Set reminder day |
 
+### Subscriptions
+
+| Command | Description |
+|---------|-------------|
+| `/finance subscriptions list` | View all subscriptions |
+| `/finance subscriptions add <name> <amount>` | Add subscription |
+| `/finance subscriptions add ... --cycle monthly` | With billing cycle |
+| `/finance subscriptions remove <id>` | Remove subscription |
+| `/finance subscriptions pause <id>` | Pause tracking |
+| `/finance subscriptions resume <id>` | Resume tracking |
+| `/finance subscriptions detect` | Auto-detect from transactions |
+| `/finance subscriptions detect --add` | Auto-add detected |
+
 ### Crypto Wallets
 
 | Command | Description |

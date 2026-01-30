@@ -160,7 +160,7 @@ def generate_daily_report(target_date: date = None) -> Optional[Report]:
             period_end=yesterday,
             text='\n'.join(text_lines),
             chart_data=yesterday_spending if yesterday_spending else None,
-            metadata={'total_spent': total_spent_yesterday, 'total_balance': total_balance}
+            metadata={'total_spent': total_spent_yesterday, 'total_balance': total_balance_home}
         )
         
         return report
